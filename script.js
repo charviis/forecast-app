@@ -23,6 +23,15 @@ function fetchWeather(location) {
             locationElement.textContent = data.name;
             temperatureElement.textContent = `${Math.round(data.main.temp)}°C`;
             descriptionElement.textContent = data.weather[0].description;
+
+            // Add weather animation based on description
+            const weatherContainer = document.getElementById('weatherAnimation');
+            weatherContainer.className = ''; // Clear previous animation
+            if (data.weather[0].main === 'Rain') {
+                weatherContainer.className = 'rain';
+            } else if (data.weather[0].main === 'Clear') {
+                weatherContainer.className = 'clear';
+            }
         })
         .catch(error => {
             console.error('Error fetching weather data:', error);
