@@ -24,6 +24,15 @@ function fetchWeather(location) {
             temperatureElement.textContent = `${Math.round(data.main.temp)}°C`;
             descriptionElement.textContent = data.weather[0].description;
 
+            // Add more details
+            const humidityElement = document.getElementById('humidity');
+            const windSpeedElement = document.getElementById('windSpeed');
+            const feelsLikeElement = document.getElementById('feelsLike');
+
+            humidityElement.textContent = `Humidity: ${data.main.humidity}%`;
+            windSpeedElement.textContent = `Wind Speed: ${data.wind.speed} m/s`;
+            feelsLikeElement.textContent = `Feels Like: ${Math.round(data.main.feels_like)}°C`;
+
             // Add weather animation based on description
             const weatherContainer = document.getElementById('weatherAnimation');
             weatherContainer.className = ''; // Clear previous animation
@@ -32,8 +41,5 @@ function fetchWeather(location) {
             } else if (data.weather[0].main === 'Clear') {
                 weatherContainer.className = 'clear';
             }
-        })
-        .catch(error => {
-            console.error('Error fetching weather data:', error);
         });
 }

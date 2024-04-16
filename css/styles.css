@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background: #121212; /* Dark grey background for dark mode */
+    color: #f5f5f5; /* Light grey text for high contrast and readability */
+    padding: 50px;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #1f1f1f; /* Slightly lighter grey container for contrast */
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 2.5em;
+}
+
+#locationInput {
+    width: 70%;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background: #1f1f1f; /* Same as container for a seamless look */
+    color: #f5f5f5; /* Light grey text for high contrast and readability */
+    transition: all 0.3s ease;
+}
+
+#locationInput:focus {
+    box-shadow: 0 0 10px #007BFF;
+}
+
+#searchButton {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007BFF; /* Blue button for a pop of color */
+    color: #fff; /* White text for high contrast and readability */
+    font-size: 1em;
+    transition: all 0.3s ease;
+}
+
+#searchButton:hover {
+    background-color: #0056b3;
+}
+
+#searchButton:active {
+    background-color: #003d7a;
+}
