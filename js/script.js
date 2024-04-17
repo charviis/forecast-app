@@ -35,18 +35,11 @@ function fetchWeather(location) {
             
             // Add map
             var map = L.map('map').setView([data.coord.lat, data.coord.lon], 13);
-        L.tileLayer(`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apiKey}`, 
-        {maxZoom: 15,
-        }).addTo(map);
+       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
-            // Add weather animation based on description
-            const weatherContainer = document.getElementById('weatherAnimation');
-            weatherContainer.className = ''; // Clear previous animation
-            if (data.weather[0].main === 'Rain') {
-                weatherContainer.className = 'rain';
-            } else if (data.weather[0].main === 'Clear') {
-                weatherContainer.className = 'clear';
-            }
+        
         });
 }
 
