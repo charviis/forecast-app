@@ -53,3 +53,7 @@ h1 {
 #searchButton:active {
     background-color: #003d7a;
 }
+
+#weatherInfo {
+    margin-top: 20px;
+}

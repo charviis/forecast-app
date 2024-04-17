@@ -12,7 +12,7 @@ searchButton.addEventListener('click', () => {
     if (location) {
         fetchWeather(location);
     }
-});
+    });
 
 function fetchWeather(location) {
     const url = `${apiUrl}?q=${location}&appid=${apiKey}&units=metric`;
@@ -29,10 +29,13 @@ function fetchWeather(location) {
             const windSpeedElement = document.getElementById('windSpeed');
             const feelsLikeElement = document.getElementById('feelsLike');
 
-            humidityElement.textContent = `Humidity: ${data.main.humidity}%`;
-            windSpeedElement.textContent = `Wind Speed: ${data.wind.speed} m/s`;
-            feelsLikeElement.textContent = `Feels Like: ${Math.round(data.main.feels_like)}°C`;
-
+            humidityElement.textContent = `Okolní vlhkost: ${data.main.humidity}%`;
+            windSpeedElement.textContent = `Rychlost větru: ${data.wind.speed} m/s`;
+            feelsLikeElement.textContent = `Pocitová teplota: ${Math.round(data.main.feels_like)}°C`;
+            
+            // Add map
+            L.tileLayer(`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apiKey}`, 
+            {maxZoom: 19,} ).addTo(map);
             // Add weather animation based on description
             const weatherContainer = document.getElementById('weatherAnimation');
             weatherContainer.className = ''; // Clear previous animation
@@ -43,3 +46,4 @@ function fetchWeather(location) {
             }
         });
 }
+
