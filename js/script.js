@@ -34,8 +34,11 @@ function fetchWeather(location) {
             feelsLikeElement.textContent = `Pocitová teplota: ${Math.round(data.main.feels_like)}°C`;
             
             // Add map
-            L.tileLayer(`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apiKey}`, 
-            {maxZoom: 19,} ).addTo(map);
+            var map = L.map('map').setView([data.coord.lat, data.coord.lon], 13);
+        L.tileLayer(`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apiKey}`, 
+        {maxZoom: 15,
+        }).addTo(map);
+
             // Add weather animation based on description
             const weatherContainer = document.getElementById('weatherAnimation');
             weatherContainer.className = ''; // Clear previous animation
