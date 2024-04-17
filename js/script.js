@@ -35,11 +35,25 @@ function fetchWeather(location) {
             
             // Add map
             var map = L.map('map').setView([data.coord.lat, data.coord.lon], 13);
-       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
 
-        
+            // Add OpenStreetMap tile layer
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Add OpenWeatherMap overlay
+            L.tileLayer(`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+                maxZoom: 19,
+                attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
+                opacity: 2
+            }).addTo(map);
+
+            // Add OpenWeatherMap overlay
+            L.tileLayer(`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+                maxZoom: 19,
+                attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
+                opacity: 1
+            }).addTo(map);
+
         });
 }
-
