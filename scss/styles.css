@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap");
+
 body {
   font-family: "Montserrat", sans-serif;
   background: linear-gradient(to right, #1f4037, #99f2c8);
@@ -6,39 +7,81 @@ body {
   padding: 50px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
+
 body .container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 20px;
   background-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
   border-radius: 10px;
 }
+
 body .container h1 {
   text-align: center;
   margin-bottom: 20px;
   font-size: 2.5em;
 }
+
+body .container .search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
 body .container #locationInput {
-  width: 70%;
+  flex: 1;
   padding: 10px;
   border: none;
-  border-radius: 5px;
+  border-radius: 5px 0 0 5px;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   transition: all 0.3s ease;
 }
+
 body .container #locationInput:focus {
   box-shadow: 0 0 10px #007BFF;
   outline: none;
 }
+
+body .container .clear-button {
+  position: absolute;
+  right: 60px;
+  cursor: pointer;
+  font-size: 1.5em;
+  color: #fff;
+  display: none;
+}
+
+body .container #locationInput:not(:placeholder-shown) + .clear-button {
+  display: block;
+}
+
 body .container #searchButton {
-  width: 25%;
   padding: 10px;
   background-color: #007BFF;
   color: #fff;
   border: none;
-  border-radius: 5px;
+  border-radius: 0 5px 5px 0;
   cursor: pointer;
   transition: all 0.3s ease;
-}/*# sourceMappingURL=styles.css.map */
+}
+
+body .container #searchButton:hover {
+  background-color: #0056b3;
+}
+
+body .container .weather-info {
+  text-align: center;
+}
+
+body .container .weather-info h2 {
+  font-size: 2em;
+  margin-bottom: 10px;
+}
+
+body .container .weather-info p {
+  font-size: 1.2em;
+  margin: 5px 0;
+}

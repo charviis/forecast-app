@@ -11,8 +11,11 @@
 <body>
     <div class="container">
         <h1>Weather App</h1>
-        <input type="text" id="locationInput" placeholder="Enter a city">
-        <button id="searchButton">Search</button>
+        <div class="search-container">
+            <input type="text" id="locationInput" placeholder="Enter a city">
+            <span id="clearButton" class="clear-button">&times;</span>
+            <button id="searchButton">Search</button>
+        </div>
         <div class="weather-info">
             <h2 id="location"></h2>
             <p id="temperature"></p>
@@ -22,12 +25,10 @@
             <p id="feelsLike"></p>
         </div>
     </div>
-<div class="container">
-    
-    <div id='map' style='height: 300px; width: 500px; position: relative; margin: auto; '></div>
-    
-</div>
+    <div class="container">
+        <div id='map' style='height: 300px; width: 100%; position: relative; margin: auto;'></div>
+    </div>
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="js\script.js"></script>
+    <script src="js/script.js"></script>
 </body>
 </html>

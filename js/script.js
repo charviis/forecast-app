@@ -3,6 +3,7 @@ const apiUrl = 'https://api.openweathermap.org/data/2.5/weather';
 
 const locationInput = document.getElementById('locationInput');
 const searchButton = document.getElementById('searchButton');
+const clearButton = document.getElementById('clearButton');
 const locationElement = document.getElementById('location');
 const temperatureElement = document.getElementById('temperature');
 const descriptionElement = document.getElementById('description');
@@ -31,10 +32,31 @@ const windLayer = L.tileLayer(`https://tile.openweathermap.org/map/wind_new/{z}/
     opacity: 0.5
 }).addTo(map);
 
+const cloudsLayer = L.tileLayer(`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+    maxZoom: 19,
+    attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
+    opacity: 0.5
+}).addTo(map);
+
+let markers = [];
+
 searchButton.addEventListener('click', () => {
     const location = locationInput.value;
     if (location) {
         fetchWeather(location);
+    }
+});
+
+clearButton.addEventListener('click', () => {
+    locationInput.value = '';
+    clearButton.style.display = 'none';
+});
+
+locationInput.addEventListener('input', () => {
+    if (locationInput.value) {
+        clearButton.style.display = 'block';
+    } else {
+        clearButton.style.display = 'none';
     }
 });
 
@@ -56,15 +78,20 @@ function fetchWeather(location) {
             const lon = data.coord.lon;
             map.setView([lat, lon], 13);
 
+            // Odstranění starých markerů
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
             // Přidání markeru na zadané místo
-            L.marker([lat, lon]).addTo(map).bindPopup(`Lokalita: ${data.name}`).openPopup();
+            const marker = L.marker([lat, lon]).addTo(map).bindPopup(`Lokalita: ${data.name}`).openPopup();
+            markers.push(marker);
         })
         .catch(error => console.error('Chyba při načítání dat:', error));
 }
 
 // Funkce pro vyhledání lokace
 function searchLocation() {
-    var searchInput = document.getElementById('searchInput').value;
+    var searchInput = document.getElementById('locationInput').value;
 
     // Volání OpenStreetMap Nominatim API pro geokódování
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchInput)}`)
@@ -77,8 +104,13 @@ function searchLocation() {
                 // Nastavení nové pozice mapy
                 map.setView([lat, lon], 13);
 
+                // Odstranění starých markerů
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
+
                 // Přidání markeru na zadané místo
-                L.marker([lat, lon]).addTo(map).bindPopup(`Hledaná lokalita: ${searchInput}`).openPopup();
+                const marker = L.marker([lat, lon]).addTo(map).bindPopup(`Hledaná lokalita: ${searchInput}`).openPopup();
+                markers.push(marker);
             } else {
                 alert('Lokalita nebyla nalezena.');
             }
@@ -87,4 +119,4 @@ function searchLocation() {
 }
 
 // Přidání posluchače na tlačítko
-document.getElementById('searchButton').addEventListener('click', searchLocation); 
+document.getElementById('searchButton').addEventListener('click', searchLocation);
