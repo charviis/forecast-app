@@ -33,27 +33,65 @@ function fetchWeather(location) {
             windSpeedElement.textContent = `Rychlost větru: ${data.wind.speed} m/s`;
             feelsLikeElement.textContent = `Pocitová teplota: ${Math.round(data.main.feels_like)}°C`;
             
-            // Add map
-            var map = L.map('map').setView([data.coord.lat, data.coord.lon], 13);
+            // Inicializace mapy s výchozím středem
+        var map = L.map('map').setView([50.0755, 14.4378], 13); // Výchozí střed: Praha
 
-            // Add OpenStreetMap tile layer
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
+        // Přidání OpenStreetMap vrstev
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-            // Add OpenWeatherMap overlay
-            L.tileLayer(`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
-                maxZoom: 19,
-                attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
-                opacity: 2
-            }).addTo(map);
+        // Přidání vrstev OpenWeatherMap
+        var precipitationLayer = L.tileLayer(`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+            maxZoom: 19,
+            attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
+            opacity: 0.5
+        }).addTo(map);
 
-            // Add OpenWeatherMap overlay
-            L.tileLayer(`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
-                maxZoom: 19,
-                attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
-                opacity: 1
-            }).addTo(map);
+        var windLayer = L.tileLayer(`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+            maxZoom: 19,
+            attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
+            opacity: 0.5
+        }).addTo(map);
+
+        var precipitationLayer = L.tileLayer(`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+    maxZoom: 19,
+    attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
+    opacity: 0.5
+}).addTo(map);
+
+var windLayer = L.tileLayer(`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+    maxZoom: 19,
+    attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>',
+    opacity: 0.5
+}).addTo(map);
+
+// Funkce pro vyhledání lokace
+function searchLocation() {
+    var searchInput = document.getElementById('searchInput').value;
+
+    // Volání OpenStreetMap Nominatim API pro geokódování
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchInput)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.length > 0) {
+                var lat = parseFloat(data[0].lat);
+                var lon = parseFloat(data[0].lon);
+
+                // Nastavení nové pozice mapy
+                map.setView([lat, lon], 13);
+
+                // Přidání markeru na zadané místo
+                L.marker([lat, lon]).addTo(map).bindPopup(`Hledaná lokalita: ${searchInput}`).openPopup();
+            } else {
+                alert('Lokalita nebyla nalezena.');
+            }
+        })
+        .catch(error => console.error('Chyba při načítání dat:', error));
+}
+
+// Přidání posluchače na tlačítko
+document.getElementById('searchButton').addEventListener('click', searchLocation);
 
         });
 }
