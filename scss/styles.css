@@ -27,12 +27,15 @@ body .container .search-container {
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center; /* Vycentrování horizontálně */
   margin-bottom: 20px;
 }
 
 body .container #locationInput {
   flex: 1;
+  max-width: 300px; /* Nastavení maximální šířky */
   padding: 10px;
+  font-size: 0.9em;
   border: none;
   border-radius: 5px 0 0 5px;
   background: rgba(255, 255, 255, 0.1);
@@ -45,21 +48,9 @@ body .container #locationInput:focus {
   outline: none;
 }
 
-body .container .clear-button {
-  position: absolute;
-  right: 60px;
-  cursor: pointer;
-  font-size: 1.5em;
-  color: #fff;
-  display: none;
-}
-
-body .container #locationInput:not(:placeholder-shown) + .clear-button {
-  display: block;
-}
-
 body .container #searchButton {
-  padding: 10px;
+  padding: 5px 10px;
+  font-size: 0.9em;
   background-color: #007BFF;
   color: #fff;
   border: none;
@@ -70,6 +61,18 @@ body .container #searchButton {
 
 body .container #searchButton:hover {
   background-color: #0056b3;
+}
+
+body .container .clear-button {
+  margin-left: 10px;
+  cursor: pointer;
+  font-size: 1.5em;
+  color: #fff;
+  display: none;
+}
+
+body .container #locationInput:not(:placeholder-shown) + #searchButton + .clear-button {
+  display: block;
 }
 
 body .container .weather-info {

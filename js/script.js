@@ -43,7 +43,7 @@ let markers = [];
 searchButton.addEventListener('click', () => {
     const location = locationInput.value;
     if (location) {
-        fetchWeather(location);
+        searchLocation();
     }
 });
 
@@ -57,6 +57,12 @@ locationInput.addEventListener('input', () => {
         clearButton.style.display = 'block';
     } else {
         clearButton.style.display = 'none';
+    }
+});
+
+locationInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        searchLocation();
     }
 });
 
@@ -91,7 +97,7 @@ function fetchWeather(location) {
 
 // Funkce pro vyhledání lokace
 function searchLocation() {
-    var searchInput = document.getElementById('locationInput').value;
+    var searchInput = locationInput.value;
 
     // Volání OpenStreetMap Nominatim API pro geokódování
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchInput)}`)
@@ -111,6 +117,9 @@ function searchLocation() {
                 // Přidání markeru na zadané místo
                 const marker = L.marker([lat, lon]).addTo(map).bindPopup(`Hledaná lokalita: ${searchInput}`).openPopup();
                 markers.push(marker);
+
+                // Zavolání funkce fetchWeather pro získání počasí
+                fetchWeather(searchInput);
             } else {
                 alert('Lokalita nebyla nalezena.');
             }
