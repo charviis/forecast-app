@@ -34,10 +34,14 @@ const hourlyChartEl = document.getElementById('hourlyChart');
 let units = (localStorage.getItem('units') === 'imperial') ? 'imperial' : 'metric'; // 'metric' | 'imperial'
 let markers = [];
 let pointerMarker = null;
+let pulseMarker = null;
 let activeReq = 0; // request token to avoid race conditions
 let unitChangeTimer = null;
 let lastCoords = { lat: 50.0755, lon: 14.4378, label: 'Prague' };
 let theme = localStorage.getItem('theme') || 'dark'; // 'dark' | 'light'
+let sunTimer = null;
+let playbackTimer = null;
+let playbackIndex = 0;
 
 // Map (Leaflet) init guarded in case CDN fails
 let map = null;
@@ -124,6 +128,9 @@ function initMap() {
         try {
             createActionButtonsControl().addTo(map);
         } catch {}
+        try {
+            createPlaybackControl().addTo(map);
+        } catch {}
 
         // Map click to get weather
         map.on('click', async (e) => {
@@ -186,10 +193,29 @@ function addMarker(lat, lon, label) {
             const p = pointerMarker.getLatLng();
             fetchWeatherByCoords(p.lat, p.lng).catch(()=>{});
         });
+        pointerMarker.on('drag', () => {
+            if (pulseMarker) pulseMarker.setLatLng(pointerMarker.getLatLng());
+        });
         markers.push(pointerMarker);
     } else {
         pointerMarker.setLatLng([lat, lon]);
     }
+    // Pulse decoration marker
+    try {
+        const pulseIcon = L.divIcon({
+            className: 'pulse-wrapper',
+            html: '<div class="pulse-marker"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+        if (!pulseMarker) {
+            pulseMarker = L.marker([lat, lon], { icon: pulseIcon, interactive: false, keyboard: false, zIndexOffset: -1000 });
+            pulseMarker.addTo(map);
+            markers.push(pulseMarker);
+        } else {
+            pulseMarker.setLatLng([lat, lon]);
+        }
+    } catch {}
     if (label) pointerMarker.bindPopup(label).openPopup();
 }
 
@@ -214,13 +240,20 @@ function updateWeatherUI(data) {
     // Local time & sun
     try {
         if (typeof data.timezone === 'number' && localTimeEl) {
-            const tzOffsetMs = data.timezone * 1000;
-            const local = new Date(Date.now() + tzOffsetMs);
-            localTimeEl.textContent = `Local time: ${local.toUTCString().slice(0, 22)}`;
+            const localMs = getLocalTimeMs(data.timezone);
+            localTimeEl.textContent = `Local time: ${new Date(localMs).toLocaleString([], { hour: '2-digit', minute: '2-digit', weekday: 'short' })}`;
         }
         if (sunriseEl && data.sys?.sunrise) sunriseEl.textContent = `Sunrise: ${new Date(data.sys.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         if (sunsetEl && data.sys?.sunset) sunsetEl.textContent = `Sunset: ${new Date(data.sys.sunset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        setupOrUpdateSunTrack(data);
     } catch {}
+}
+
+// Compute local time ms given OWM timezone (seconds from UTC)
+function getLocalTimeMs(owmTzSeconds) {
+    const now = Date.now();
+    const utcNow = now + (new Date().getTimezoneOffset() * -60000);
+    return utcNow + (owmTzSeconds * 1000);
 }
 
 function renderForecast(list) {
@@ -655,4 +688,86 @@ function renderHourlyChart(list) {
         const time = labels[i];
         ctx.fillText(time, x - ctx.measureText(time).width / 2, ch - 6);
     });
+}
+
+// Leaflet controls: playback through favorites (map animation)
+function createPlaybackControl() {
+    const control = L.control({ position: 'topleft' });
+    control.onAdd = function () {
+        const container = L.DomUtil.create('div', 'leaflet-bar playback');
+        const btnPlay = L.DomUtil.create('a', '', container);
+        btnPlay.href = '#';
+        btnPlay.title = 'Play favorites slideshow';
+        btnPlay.setAttribute('role', 'button');
+        btnPlay.setAttribute('aria-label', 'Play favorites slideshow');
+        btnPlay.textContent = '▶';
+        const btnPause = L.DomUtil.create('a', '', container);
+        btnPause.href = '#';
+        btnPause.title = 'Pause slideshow';
+        btnPause.setAttribute('role', 'button');
+        btnPause.setAttribute('aria-label', 'Pause slideshow');
+        btnPause.textContent = '⏸';
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(btnPlay, 'click', (e) => { e.preventDefault(); startFavoritesPlayback(); });
+        L.DomEvent.on(btnPause, 'click', (e) => { e.preventDefault(); stopFavoritesPlayback(); });
+        return container;
+    };
+    return control;
+}
+
+function startFavoritesPlayback() {
+    stopFavoritesPlayback();
+    const favs = getFavorites();
+    if (!favs.length) { setStatus('Add favorites to use slideshow'); return; }
+    playbackIndex = 0;
+    const step = async () => {
+        const f = favs[playbackIndex % favs.length];
+        playbackIndex++;
+        try {
+            if (hasMap) map.flyTo([f.lat, f.lon], Math.max(map.getZoom(), 10), { animate: true, duration: 1.2 });
+            await fetchWeatherByCoords(f.lat, f.lon);
+        } catch {}
+    };
+    step();
+    playbackTimer = setInterval(step, 6500);
+}
+function stopFavoritesPlayback() {
+    if (playbackTimer) { clearInterval(playbackTimer); playbackTimer = null; }
+}
+
+// Sunrise/Sunset animated progress
+function setupOrUpdateSunTrack(data) {
+    try {
+        const container = document.querySelector('.time-sun');
+        if (!container || !data?.sys) return;
+        let rail = container.querySelector('.sun-rail');
+        let fill = container.querySelector('.sun-fill');
+        let sun = container.querySelector('.sun-dot');
+        if (!rail) {
+            const wrap = document.createElement('div');
+            wrap.className = 'sun-track';
+            wrap.innerHTML = '<div class="sun-rail"><div class="sun-fill"></div><div class="sun-dot">☀</div></div>';
+            container.appendChild(wrap);
+            rail = wrap.querySelector('.sun-rail');
+            fill = wrap.querySelector('.sun-fill');
+            sun = wrap.querySelector('.sun-dot');
+        }
+        const tz = data.timezone; // seconds
+        const sunriseMs = data.sys.sunrise * 1000;
+        const sunsetMs = data.sys.sunset * 1000;
+        const update = () => {
+            const nowMs = getLocalTimeMs(tz);
+            let pct = 0;
+            if (nowMs <= sunriseMs) pct = 0;
+            else if (nowMs >= sunsetMs) pct = 1;
+            else pct = (nowMs - sunriseMs) / (sunsetMs - sunriseMs);
+            pct = Math.max(0, Math.min(1, pct));
+            const percStr = (pct * 100).toFixed(2) + '%';
+            if (fill) fill.style.width = percStr;
+            if (sun) sun.style.left = percStr;
+        };
+        update();
+        if (sunTimer) clearInterval(sunTimer);
+        sunTimer = setInterval(update, 30000);
+    } catch {}
 }
