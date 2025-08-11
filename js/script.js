@@ -31,6 +31,8 @@ const sunriseEl = document.getElementById('sunrise');
 const sunsetEl = document.getElementById('sunset');
 const aqiIndexEl = document.getElementById('aqiIndex');
 const aqiDetailsEl = document.getElementById('aqiDetails');
+const sportsScoreEl = document.getElementById('sportsScore');
+const sportsDetailsEl = document.getElementById('sportsDetails');
 // New UI hooks
 const themeToggleBtn = document.getElementById('themeToggle');
 const recentListEl = document.getElementById('recentList');
@@ -140,6 +142,9 @@ function initMap() {
         try {
             createPlaybackControl().addTo(map);
         } catch {}
+        try {
+            createLegendControl(overlays).addTo(map);
+        } catch {}
     // wind map overlay removed
 
         // Map click to get weather
@@ -180,6 +185,47 @@ function setStatus(msg, isError = false) {
     if (!statusEl) return;
     statusEl.textContent = msg || '';
     statusEl.style.color = isError ? '#ffb4b4' : '#cfcfcf';
+}
+
+// --- Utility / polish helpers ---
+function addClass(el, cls){ if(el && !el.classList.contains(cls)) el.classList.add(cls); }
+function removeClass(el, cls){ if(el) el.classList.remove(cls); }
+
+function animateValueChange(el, newText) {
+    if(!el) return;
+    if(el.textContent === newText) return; // no change
+    el.classList.add('temp-fade');
+    setTimeout(()=>{
+        el.textContent = newText;
+        el.classList.remove('temp-fade');
+    },110);
+}
+
+function showLoading() { addClass(document.querySelector('.weather-info'), 'loading'); }
+function hideLoading() { removeClass(document.querySelector('.weather-info'), 'loading'); }
+
+function ensureMetricLayout(data){
+    // If metrics grid already exists, just return
+    const container = document.querySelector('.weather-info');
+    if(!container) return;
+    if(container.querySelector('.metrics-grid')) return; // already built
+    const name = data?.name || '';
+    container.innerHTML = `
+        <h2 id="location">${name}</h2>
+        <div class="metrics-grid" aria-live="polite">
+            <div class="metric-box primary"><strong>Temp</strong><span id="temperature" class="value"></span></div>
+            <div class="metric-box"><strong>Feels</strong><span id="feelsLike" class="value"></span></div>
+            <div class="metric-box"><strong>Conditions</strong><span id="description" class="value"></span></div>
+            <div class="metric-box"><strong>Humidity</strong><span id="humidity" class="value"></span></div>
+            <div class="metric-box"><strong>Wind</strong><span id="windSpeed" class="value"></span></div>
+        </div>`;
+    // Re-bind
+    locationElement = document.getElementById('location');
+    temperatureElement = document.getElementById('temperature');
+    descriptionElement = document.getElementById('description');
+    humidityElement = document.getElementById('humidity');
+    windSpeedElement = document.getElementById('windSpeed');
+    feelsLikeElement = document.getElementById('feelsLike');
 }
 
 // Theme
@@ -236,47 +282,22 @@ function formatWind(speed) {
 }
 
 function updateWeatherUI(data) {
+    ensureMetricLayout(data);
     const tempUnit = units === 'metric' ? '°C' : '°F';
-    locationElement.textContent = data.name || `${data.coord.lat.toFixed(2)}, ${data.coord.lon.toFixed(2)}`;
     const desc = data.weather?.[0]?.description || '';
     const deg = data.wind?.deg ?? 0;
     const newTemp = `${Math.round(data.main.temp)}${tempUnit}`;
     const feels = `${Math.round(data.main.feels_like)}${tempUnit}`;
-    const humidity = `${data.main.humidity}%`;
+    const humidityTxt = `${data.main.humidity}%`;
     const windHtml = `<span class="wind"><span class="arrow" style="transform: rotate(${deg}deg);">➤</span> ${formatWind(data.wind.speed)}</span>`;
-    // Build boxed layout
-    const container = temperatureElement.parentElement; // .weather-info
-    if (container) {
-        container.innerHTML = `
-            <h2 id="location">${locationElement.textContent}</h2>
-            <div class="metrics-grid" aria-live="polite">
-                <div class="metric-box primary"><strong>Temp</strong><span id="temperature">${newTemp}</span></div>
-                <div class="metric-box"><strong>Feels</strong><span id="feelsLike">${feels}</span></div>
-                <div class="metric-box"><strong>Conditions</strong><span id="description">${desc.charAt(0).toUpperCase() + desc.slice(1)}</span></div>
-                <div class="metric-box"><strong>Humidity</strong><span id="humidity">${humidity}</span></div>
-                <div class="metric-box"><strong>Wind</strong><span id="windSpeed">${windHtml}</span></div>
-            </div>`;
-    }
-    // Re-wire references after rebuild
-    temperatureElement = document.getElementById('temperature');
-    descriptionElement = document.getElementById('description');
-    humidityElement = document.getElementById('humidity');
-    windSpeedElement = document.getElementById('windSpeed');
-    feelsLikeElement = document.getElementById('feelsLike');
-    // Animated wind particles
-    try {
-        // Remove any old inline wind animation element (deprecated)
-        const oldInline = windSpeedElement.querySelector('.wind-flow');
-        if (oldInline) oldInline.remove();
-        // Update full-screen background wind field
+    if (locationElement) locationElement.textContent = data.name || `${data.coord.lat.toFixed(2)}, ${data.coord.lon.toFixed(2)}`;
+    animateValueChange(temperatureElement, newTemp);
+    if (feelsLikeElement) feelsLikeElement.textContent = feels;
+    if (descriptionElement) descriptionElement.textContent = desc.charAt(0).toUpperCase() + desc.slice(1);
+    if (humidityElement) humidityElement.textContent = humidityTxt;
+    if (windSpeedElement) windSpeedElement.innerHTML = windHtml;
     try { updateDynamicBackground(data); } catch {}
-    } catch {}
-
-
-// Wind animation (simple particle flow indicating speed & direction)
-// (Removed inline wind animation functions)
-    // Feels like already inserted
-    // Local time & sun
+    try { updateSportsScore(data); } catch {}
     try {
         if (typeof data.timezone === 'number' && localTimeEl) {
             const localMs = getLocalTimeMs(data.timezone);
@@ -286,6 +307,49 @@ function updateWeatherUI(data) {
         if (sunsetEl && data.sys?.sunset) sunsetEl.textContent = `Sunset: ${new Date(data.sys.sunset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         setupOrUpdateSunTrack(data);
     } catch {}
+}
+
+// Sports suitability score (0-100) based on temp, wind, humidity, conditions
+function updateSportsScore(data){
+    if(!sportsScoreEl) return;
+    const temp = data.main?.temp;
+    const wind = data.wind?.speed || 0;
+    const hum = data.main?.humidity || 0;
+    const code = data.weather?.[0]?.id || 800;
+    // Normalize temp comfort (prefer 12-22C metric or 55-72F imperial)
+    let tScore = 0;
+    if(units==='metric'){
+        if(temp<=-5 || temp>=38) tScore = 5; else if (temp<5) tScore=25; else if (temp<12) tScore=55; else if (temp<=22) tScore=95; else if (temp<=28) tScore=75; else if (temp<=32) tScore=55; else tScore=35;
+    } else {
+        // imperial temps
+        if(temp<=23 || temp>=100) tScore=5; else if (temp<41) tScore=30; else if (temp<55) tScore=55; else if (temp<=72) tScore=95; else if (temp<=82) tScore=75; else if (temp<=90) tScore=55; else tScore=35;
+    }
+    // Wind penalty (ideal <6 m/s or <13 mph)
+    let w = wind; if(units==='imperial') { /* mph already returned by API? Actually OWM returns m/s always unless units=imperial => mph */ }
+    let wScore = w<=1?95: w<=3?90: w<=6?80: w<=8?60: w<=12?45: w<=18?30:15;
+    // Humidity (ideal 30-55%)
+    let hScore = hum<=10?40: hum<30?70: hum<=55?95: hum<=70?70: hum<=85?50:35;
+    // Weather condition penalty
+    let cond = 1.0;
+    if(code>=200 && code<600) cond = 0.35; // rain/thunder
+    else if(code>=600 && code<700) cond = 0.55; // snow
+    else if(code>=700 && code<800) cond = 0.65; // mist etc
+    else if(code===800) cond = 1.0; // clear
+    else if(code>800) cond = 0.85; // clouds
+    // Aggregate
+    const base = (tScore*0.45 + wScore*0.25 + hScore*0.20) * cond; // 90% weight
+    const score = Math.round(Math.min(100, Math.max(0, base + 10*cond)));
+    let label = 'Poor'; let color = '#dc2626';
+    if(score>=80){ label='Great'; color='#16a34a'; }
+    else if(score>=65){ label='Good'; color='#65a30d'; }
+    else if(score>=50){ label='Fair'; color='#d97706'; }
+    else if(score>=35){ label='Marginal'; color='#b45309'; }
+    sportsScoreEl.textContent = `Suitability: ${score}/100 (${label})`;
+    sportsScoreEl.style.color = color;
+    if(sportsDetailsEl){
+        sportsDetailsEl.innerHTML = `
+            <small>Temp score: ${tScore.toFixed(0)} | Wind score: ${wScore} | Humidity score: ${hScore} | Condition factor: ${(cond*100).toFixed(0)}%</small>`;
+    }
 }
 
 // Compute local time ms given OWM timezone (seconds from UTC)
@@ -363,6 +427,7 @@ async function fetchWeatherByCoords(lat, lon) {
     const url = `${WEATHER_URL}?lat=${lat}&lon=${lon}&appid=${apiKey}&units=${units}`;
     const reqId = ++activeReq;
     setStatus('Loading current weather…');
+    showLoading();
     try {
         const data = await fetchJSON(url);
         if (reqId !== activeReq) return; // stale response ignored
@@ -379,10 +444,12 @@ async function fetchWeatherByCoords(lat, lon) {
     fetchAQI(lat, lon).catch(() => {});
         if (reqId !== activeReq) return;
         setStatus('');
+        hideLoading();
     } catch (e) {
         if (reqId !== activeReq) return;
         console.error(e);
         setStatus('Failed to load weather.', true);
+        hideLoading();
         throw e;
     }
 }
@@ -407,6 +474,7 @@ async function fetchWeatherByQuery(query) {
 async function fetchForecast(lat, lon) {
     const url = `${FORECAST_URL}?lat=${lat}&lon=${lon}&appid=${apiKey}&units=${units}`;
     try {
+        addClass(forecastGrid, 'loading');
         const data = await fetchJSON(url);
         renderForecast(data.list || []);
         updateBackgroundWindFromForecast(data.list || []);
@@ -414,6 +482,7 @@ async function fetchForecast(lat, lon) {
     } catch (e) {
         console.warn('Forecast failed', e);
     }
+    removeClass(forecastGrid, 'loading');
 }
 
 // Events
@@ -550,6 +619,48 @@ function createActionButtonsControl() {
     return control;
 }
 
+// Legend control explaining overlay layers
+function createLegendControl(overlays) {
+    const control = L.control({ position: 'bottomright' });
+    control.onAdd = function () {
+        const div = L.DomUtil.create('div', 'leaflet-control legend-control');
+        div.innerHTML = `
+            <div class="legend-header">
+                <span>Legend</span>
+                <button type="button" class="legend-toggle" aria-label="Toggle legend" title="Toggle legend">−</button>
+            </div>
+            <div class="legend-body">
+                <div class="legend-item" data-layer="Precipitation"><span class="label">Precipitation</span><span class="bar precip" aria-hidden="true"></span><span class="scale">Low → High</span></div>
+                <div class="legend-item" data-layer="Wind"><span class="label">Wind</span><span class="bar wind" aria-hidden="true"></span><span class="scale">Calm → Strong</span></div>
+                <div class="legend-item" data-layer="Clouds"><span class="label">Clouds</span><span class="bar clouds" aria-hidden="true"></span><span class="scale">Few → Opaque</span></div>
+                <div class="legend-item" data-layer="Temperature"><span class="label">Temp</span><span class="bar temp" aria-hidden="true"></span><span class="scale">Cold → Hot</span></div>
+                <div class="legend-item" data-layer="Pressure"><span class="label">Pressure</span><span class="bar pressure" aria-hidden="true"></span><span class="scale">Low → High</span></div>
+                <p class="hint">Toggle layers via the layer picker (top‑right).</p>
+            </div>`;
+        const body = div.querySelector('.legend-body');
+        const toggleBtn = div.querySelector('.legend-toggle');
+        const collapse = () => { body.style.display = 'none'; toggleBtn.textContent = '+'; };
+        const expand = () => { body.style.display = ''; toggleBtn.textContent = '−'; };
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (body.style.display === 'none') expand(); else collapse();
+        });
+        // highlight active layers
+        function updateActive(){
+            const items = div.querySelectorAll('.legend-item');
+            items.forEach(it => {
+                const name = it.getAttribute('data-layer');
+                if (overlays[name] && map.hasLayer(overlays[name])) it.classList.add('active'); else it.classList.remove('active');
+            });
+        }
+        map.on('overlayadd overlayremove', updateActive);
+        setTimeout(updateActive, 50);
+        L.DomEvent.disableClickPropagation(div);
+        return div;
+    };
+    return control;
+}
+
 // Initialize map if Leaflet loaded
 initMap();
 
@@ -584,6 +695,10 @@ if (!initialized) {
     }
 }
 if (!initialized) fetchWeatherByCoords(50.0755, 14.4378).catch(() => {});
+
+// Offline / online indicators
+window.addEventListener('offline', ()=> setStatus('Offline – data may be outdated', true));
+window.addEventListener('online', ()=> setStatus('Online', false));
 
 // Favorites helpers
 function getFavorites() {
