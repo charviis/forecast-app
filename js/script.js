@@ -46,14 +46,15 @@ let sunTimer = null;
 let playbackTimer = null;
 let playbackIndex = 0;
 
-// Map (Leaflet) init guarded in case CDN fails
+// Map (Leaflet) init guarded in case CDN fails (background map variant)
 let map = null;
 let hasMap = false;
 let leafletLoading = false;
+let bgMapEl = document.getElementById('mapBackground');
 function loadLeafletFallback() {
     if (leafletLoading) return; // avoid duplicates
     leafletLoading = true;
-    setStatus('Loading map…');
+    if (bgMapEl) bgMapEl.classList.add('loading');
     // Add CSS if missing
     if (!document.querySelector('link[data-leaflet-fallback]')) {
         const link = document.createElement('link');
@@ -68,8 +69,8 @@ function loadLeafletFallback() {
         s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
         s.defer = true;
         s.setAttribute('data-leaflet-fallback', '');
-        s.onload = () => { leafletLoading = false; initMap(); };
-        s.onerror = () => { leafletLoading = false; setStatus('Map failed to load.', true); };
+    s.onload = () => { leafletLoading = false; initMap(); };
+    s.onerror = () => { leafletLoading = false; if (bgMapEl) bgMapEl.classList.add('error'); setStatus('Map failed to load.', true); };
         document.head.appendChild(s);
     }
 }
@@ -77,13 +78,14 @@ function loadLeafletFallback() {
 function initMap() {
     try {
         if (typeof L === 'undefined') { loadLeafletFallback(); return; }
-        // Restore map view if available
-        const savedView = JSON.parse(localStorage.getItem('mapView') || 'null');
+    // Use background container as map root, fallback to hidden #map
+    const containerId = bgMapEl ? 'mapBackground' : 'map';
+    // Restore map view if available
+    let savedView = null; try { savedView = JSON.parse(localStorage.getItem('mapView') || 'null'); } catch {}
         const startLat = savedView?.lat ?? 50.0755;
         const startLon = savedView?.lon ?? 14.4378;
         const startZoom = savedView?.zoom ?? 11;
-
-        map = L.map('map').setView([startLat, startLon], startZoom);
+    map = L.map(containerId, { zoomControl: false }).setView([startLat, startLon], startZoom);
 
         // Base layers
         const baseLayers = {
@@ -149,17 +151,19 @@ function initMap() {
             localStorage.setItem('mapView', JSON.stringify({ lat: c.lat, lon: c.lng, zoom: map.getZoom() }));
         });
 
-        // Invalidate size after layout
-        setTimeout(() => { try { map.invalidateSize(false); } catch {} }, 0);
+        // Invalidate size after layout & on window resize
+        setTimeout(() => { try { map.invalidateSize(false); } catch {} }, 60);
         let resizeTimer = null;
         window.addEventListener('resize', () => {
             if (resizeTimer) clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => { try { map.invalidateSize(false); } catch {} }, 150);
+            resizeTimer = setTimeout(() => { try { map.invalidateSize(false); } catch {} }, 180);
         });
         hasMap = true;
+        if (bgMapEl) bgMapEl.classList.remove('loading');
         setStatus('');
     } catch (e) {
         console.error('Map init failed', e);
+        if (bgMapEl) bgMapEl.classList.add('error');
         setStatus('Map failed to initialize.', true);
     }
 }
