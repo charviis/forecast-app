@@ -1,11 +1,11 @@
-// Placeholder news module
-// Future: integrate climate & severe weather headlines.
+const API_BASE = (location.protocol === 'file:' ? 'http://localhost:4000' : '');
+
 export async function initNews(){
   const list = document.getElementById('newsList');
   if(!list) return;
   list.innerHTML = '<li>Loading headlines…</li>';
   try {
-    const res = await fetch('/api/news/headlines');
+  const res = await fetch(API_BASE + '/api/news/headlines');
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     if(!json?.items) { list.innerHTML='<li>No headlines available</li>'; return; }
@@ -15,7 +15,7 @@ export async function initNews(){
     }).join('');
   } catch (err) {
     console.error('News fetch error', err);
-    list.innerHTML = '<li>Error loading headlines</li>';
+    list.innerHTML = `<li>Error loading headlines: <span style='opacity:.7'>${err.message}</span>${API_BASE?" (Did you start the server?)":""}</li>`;
   }
 }
 initNews();

@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
 import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import { promisify } from 'util';
 import fetch from 'node-fetch';
 
 const app = express();
@@ -16,17 +16,23 @@ const __dirname = path.dirname(__filename);
 const staticRoot = path.join(__dirname, '..');
 app.use(express.static(staticRoot));
 
-let db;
-(async () => {
-  db = await open({ filename: './weather.db', driver: sqlite3.Database });
-  await db.exec(`CREATE TABLE IF NOT EXISTS favorites (
+// Initialize sqlite3 without external 'sqlite' wrapper
+const dbFile = path.join(__dirname, 'weather.db');
+const rawDb = new sqlite3.Database(dbFile);
+const runAsync = (sql, params=[]) => new Promise((resolve, reject) => rawDb.run(sql, params, function(err){ if(err) reject(err); else resolve(this); }));
+const allAsync = (sql, params=[]) => new Promise((resolve, reject) => rawDb.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows)));
+const getAsync = (sql, params=[]) => new Promise((resolve, reject) => rawDb.get(sql, params, (err, row) => err ? reject(err) : resolve(row)));
+const execAsync = (sql) => new Promise((resolve, reject) => rawDb.exec(sql, err => err ? reject(err) : resolve()));
+
+const dbReady = (async () => {
+  await execAsync(`CREATE TABLE IF NOT EXISTS favorites (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       label TEXT NOT NULL,
       lat REAL NOT NULL,
       lon REAL NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS searches (
+  await execAsync(`CREATE TABLE IF NOT EXISTS searches (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       query TEXT NOT NULL,
       lat REAL,
@@ -34,12 +40,12 @@ let db;
       resolved_label TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS weather_cache (
+  await execAsync(`CREATE TABLE IF NOT EXISTS weather_cache (
     key TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
     fetched_at INTEGER NOT NULL
   );`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS forecast_cache (
+  await execAsync(`CREATE TABLE IF NOT EXISTS forecast_cache (
     key TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
     fetched_at INTEGER NOT NULL
@@ -51,33 +57,38 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // Favorites REST
 app.get('/api/favorites', async (_req, res) => {
-  const rows = await db.all('SELECT * FROM favorites ORDER BY created_at DESC');
+  await dbReady;  
+  const rows = await allAsync('SELECT * FROM favorites ORDER BY created_at DESC');
   res.json(rows);
 });
 app.post('/api/favorites', async (req, res) => {
+  await dbReady;
   const { label, lat, lon } = req.body || {};
   if (typeof label !== 'string' || typeof lat !== 'number' || typeof lon !== 'number') {
     return res.status(400).json({ error: 'Invalid payload' });
   }
-  await db.run('INSERT INTO favorites(label, lat, lon) VALUES (?,?,?)', label, lat, lon);
+  await runAsync('INSERT INTO favorites(label, lat, lon) VALUES (?,?,?)', [label, lat, lon]);
   res.status(201).json({ ok: true });
 });
 app.delete('/api/favorites/:id', async (req, res) => {
+  await dbReady;
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: 'Bad id' });
-  await db.run('DELETE FROM favorites WHERE id = ?', id);
+  await runAsync('DELETE FROM favorites WHERE id = ?', [id]);
   res.json({ ok: true });
 });
 
 // Searches log
 app.post('/api/searches', async (req, res) => {
+  await dbReady;
   const { query, lat, lon, resolved_label } = req.body || {};
   if (typeof query !== 'string') return res.status(400).json({ error: 'Invalid payload' });
-  await db.run('INSERT INTO searches(query, lat, lon, resolved_label) VALUES (?,?,?,?)', query, lat ?? null, lon ?? null, resolved_label ?? null);
+  await runAsync('INSERT INTO searches(query, lat, lon, resolved_label) VALUES (?,?,?,?)', [query, lat ?? null, lon ?? null, resolved_label ?? null]);
   res.status(201).json({ ok: true });
 });
 app.get('/api/searches', async (_req, res) => {
-  const rows = await db.all('SELECT * FROM searches ORDER BY created_at DESC LIMIT 50');
+  await dbReady;
+  const rows = await allAsync('SELECT * FROM searches ORDER BY created_at DESC LIMIT 50');
   res.json(rows);
 });
 
@@ -90,13 +101,15 @@ function cacheKey(type, params) {
 }
 
 async function getCache(table, key, ttl) {
-  const row = await db.get(`SELECT payload, fetched_at FROM ${table} WHERE key = ?`, key);
+  await dbReady;
+  const row = await getAsync(`SELECT payload, fetched_at FROM ${table} WHERE key = ?`, [key]);
   if (!row) return null;
   if (Date.now() - row.fetched_at > ttl) return null;
   try { return JSON.parse(row.payload); } catch { return null; }
 }
 async function setCache(table, key, payload) {
-  await db.run(`INSERT OR REPLACE INTO ${table}(key, payload, fetched_at) VALUES (?,?,?)`, key, JSON.stringify(payload), Date.now());
+  await dbReady;
+  await runAsync(`INSERT OR REPLACE INTO ${table}(key, payload, fetched_at) VALUES (?,?,?)`, [key, JSON.stringify(payload), Date.now()]);
 }
 
 async function fetchExternalJSON(url) {
@@ -148,8 +161,8 @@ app.post('/api/cache/cleanup', async (_req, res) => {
   try {
     const oldW = Date.now() - WEATHER_TTL_MS * 4;
     const oldF = Date.now() - FORECAST_TTL_MS * 4;
-    await db.run('DELETE FROM weather_cache WHERE fetched_at < ?', oldW);
-    await db.run('DELETE FROM forecast_cache WHERE fetched_at < ?', oldF);
+  await runAsync('DELETE FROM weather_cache WHERE fetched_at < ?', [oldW]);
+  await runAsync('DELETE FROM forecast_cache WHERE fetched_at < ?', [oldF]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -1,10 +1,12 @@
 // Placeholder finance module
 // Future: fetch market & commodity data, correlate with weather.
+const API_BASE = (location.protocol === 'file:' ? 'http://localhost:4000' : '');
+
 export function initFinance(){
   const list = document.getElementById('financeList');
   if(!list) return;
   list.innerHTML = '<li>Loading finance overview…</li>';
-  fetch('/api/finance/overview').then(r=>{
+fetch(API_BASE + '/api/finance/overview').then(r=>{
       if(!r.ok) throw new Error('HTTP '+r.status);
       return r.json();
     }).then(json => {
@@ -17,6 +19,6 @@ export function initFinance(){
       if(json.notice){
         list.insertAdjacentHTML('beforeend', `<li style="opacity:.6;font-size:.6rem;">${json.notice}</li>`);
       }
-    }).catch(err=>{ console.error('Finance fetch error', err); list.innerHTML='<li>Error loading finance data</li>'; });
+  }).catch(err=>{ console.error('Finance fetch error', err); list.innerHTML=`<li>Error loading finance data: <span style='opacity:.7'>${err.message}</span>${API_BASE?" (Did you start the server?)":""}</li>`; });
 }
 initFinance();
