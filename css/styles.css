@@ -6,16 +6,22 @@ body {
     color: #f5f5f5; /* Light text */
     padding: 24px;
 }
-body.has-bg-map { padding: 0; min-height: 100vh; }
-body.has-bg-map .page { min-height: 100vh; }
+/* Dynamic background (time & weather based) */
+body::before {
+    content:"";
+    position:fixed; inset:0; z-index:-1;
+    background: radial-gradient(circle at 50% 40%, #0b3a6b 0%, #051d31 60%, #031320 100%);
+    transition: background 1.2s ease;
+}
+body.bg-day::before { background: linear-gradient(180deg,#57b1ff 0%, #1d5b99 55%, #0d2c4a 100%); }
+body.bg-morning::before { background: linear-gradient(180deg,#ffe6a3 0%, #ffb347 45%, #1e3a5f 100%); }
+body.bg-evening::before { background: linear-gradient(180deg,#1e2a4f 0%, #5b2e7e 50%, #110b24 100%); }
+body.bg-night::before { background: radial-gradient(circle at 60% 35%, #0d1d33 0%, #081524 55%, #050d16 100%); }
+body.bg-rain::before { background: linear-gradient(180deg,#3f5972 0%, #253647 60%, #111b25 100%); }
+body.bg-snow::before { background: linear-gradient(180deg,#cfe9f9 0%, #85b8d6 50%, #27445a 100%); }
 
-.map-background { position: fixed; inset: 0; z-index: 0; background: #0d0d0d; }
-.overlay-layout { position: relative; z-index: 2; }
-.glass { backdrop-filter: blur(18px) saturate(160%); background: rgba(30,30,30,0.52); border: 1px solid rgba(255,255,255,0.08); }
-.theme-light .glass { background: rgba(255,255,255,0.55); border-color: rgba(0,0,0,0.08); }
-.hidden-map { position: absolute; width: 0; height: 0; overflow: hidden; }
-
-.glass h1 { text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+/* Remove previous background map styling */
+.hidden-map { display:none; }
 
 /* Reposition original layout when map is background */
 body.has-bg-map .page { display: flex; justify-content: center; padding: 40px 28px; }
@@ -41,14 +47,17 @@ body.has-bg-map .container { max-width: 680px; }
 
 .page { display: block; }
 
-.container {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 20px;
-    background-color: #1f1f1f; /* Panel */
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-    border-radius: 10px;
+ .container {
+    max-width: 720px;
+    margin: 0 auto 28px;
+    padding: 18px 22px 26px;
+    background: rgba(14,25,41,0.50);
+    border: 1px solid rgba(59,130,246,0.12);
+    backdrop-filter: blur(18px) saturate(150%);
+    border-radius: 16px;
+    box-shadow: 0 6px 22px -6px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.025);
 }
+body.theme-light .container { background: rgba(255,255,255,0.7); border-color: rgba(37,99,235,0.25); }
 
 /* Landscape removed: keep stacked, scrollable layout */
 
@@ -71,7 +80,7 @@ h1 {
     padding: 10px 36px 10px 12px;
     border: 1px solid #2a2a2a;
     border-radius: 8px;
-    background: #161616;
+    background: rgba(7,18,30,0.85);
     color: #f5f5f5;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -102,24 +111,29 @@ h1 {
 .chip { background: #171717; border: 1px solid #2a2a2a; color: #eaeaea; padding: 6px 10px; border-radius: 999px; cursor: pointer; font-size: 0.9em; }
 .chip .x { margin-left: 6px; color: #bdbdbd; }
 .btn {
-    padding: 10px 14px;
-    border: 1px solid #2a2a2a;
-    border-radius: 8px;
-    background: #1f1f1f;
-    color: #f5f5f5;
+    padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    color: #e2f2ff;
     cursor: pointer;
+    backdrop-filter: blur(6px) saturate(150%);
+    -webkit-backdrop-filter: blur(6px) saturate(150%);
+    transition: background 140ms ease, border-color 140ms ease, transform 90ms ease;
+    box-shadow: 0 2px 6px -2px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04) inset;
 }
-.btn:hover { background: #282828; }
-.btn.primary { background: #2563eb; border-color: #2563eb; }
-.btn.primary:hover { background: #1d4ed8; }
+.btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: linear-gradient(180deg, rgba(59,130,246,0.65), rgba(29,78,216,0.65)); border-color: rgba(96,165,250,0.5); }
+.btn.primary:hover { background: linear-gradient(180deg, rgba(96,165,250,0.75), rgba(29,78,216,0.75)); }
 .unit-toggle { position: relative; display: inline-flex; align-items: center; user-select: none; white-space: nowrap; }
 .unit-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
 .unit-toggle .track {
     position: relative;
     width: 120px;
     height: 36px;
-    background: #181818;
-    border: 1px solid #2a2a2a;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.18);
     border-radius: 999px;
     display: block;
     padding: 2px;
@@ -142,7 +156,7 @@ h1 {
     left: 2px;
     width: calc(50% - 4px);
     height: calc(100% - 4px);
-    background: #2563eb;
+    background: linear-gradient(180deg,rgba(59,130,246,0.9),rgba(29,78,216,0.85));
     border-radius: 999px;
     transition: left 180ms ease, background 180ms ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -158,19 +172,27 @@ h1 {
 .temp-fade { opacity: 0.3; transform: translateY(-2px); }
 
 .weather-info { margin-top: 12px; }
-.weather-info p { margin: 4px 0; }
+.weather-info { display:flex; flex-direction:column; gap:10px; }
+.weather-info h2 { margin:0 0 4px; }
+.weather-info p { margin:0; }
+.weather-info .metrics-grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); }
+.metric-box { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:0.8rem; line-height:1.2; letter-spacing:.3px; display:flex; flex-direction:column; gap:2px; position:relative; }
+.metric-box strong { font-size:0.75rem; font-weight:600; text-transform:uppercase; opacity:.75; letter-spacing:.6px; }
+.metric-box.primary { background:rgba(59,130,246,0.18); border-color:rgba(96,165,250,0.35); font-size:0.95rem; }
+.metric-box.primary strong { opacity:.9; }
 
 .forecast { margin-top: 16px; }
 .hourly { margin-top: 16px; }
 .hourly-chart {
-    background: #171717;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    padding: 8px;
+    background: rgba(7,18,30,0.7);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 14px;
+    padding: 10px 12px 16px;
+    box-shadow: 0 4px 14px -4px rgba(0,0,0,0.5) inset;
 }
 .theme-light .hourly-chart { background: #ffffff; border-color: #e5e7eb; }
 .extras { margin-top: 16px; display: grid; gap: 12px; }
-.extras > div { background: #171717; border: 1px solid #2a2a2a; border-radius: 10px; padding: 10px; }
+.extras > div { background: rgba(7,18,30,0.7); border: 1px solid rgba(59,130,246,0.18); border-radius: 14px; padding: 14px 16px; }
 .aqi-badge { display: inline-block; padding: 6px 10px; border-radius: 999px; font-weight: 700; }
 .aqi-good { background: #14532d; color: #a7f3d0; }
 .aqi-mod { background: #4b5563; color: #e5e7eb; }
@@ -181,12 +203,19 @@ h1 {
     gap: 8px;
 }
 .forecast-card {
-    background: #171717;
-    border: 1px solid #2a2a2a;
-    border-radius: 8px;
-    padding: 10px;
+    background: linear-gradient(180deg, rgba(11,34,56,0.9), rgba(5,17,28,0.9));
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 12px;
+    padding: 12px 10px;
     text-align: center;
+    box-shadow: 0 4px 16px -6px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03);
 }
+.forecast-card .boxes { display:grid; gap:6px; margin-top:4px; }
+.forecast-card .box { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:4px 6px; font-size:0.75rem; line-height:1.15; letter-spacing:.3px; }
+.forecast-card .box.temp-box { font-size:0.95rem; font-weight:600; background:rgba(59,130,246,0.18); border-color:rgba(96,165,250,0.35); }
+.forecast-card .box.minmax-box { font-size:0.7rem; opacity:0.9; }
+.forecast-card .box.pop-box { font-size:0.65rem; background:rgba(255,255,255,0.08); }
+.forecast-card img { filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
 .forecast-card .day { font-weight: 700; margin-bottom: 6px; }
 .forecast-card .temp { font-size: 1.1em; }
 .forecast-card .desc { color: #cfcfcf; font-size: 0.9em; }
@@ -197,8 +226,11 @@ h1 {
 .wind-flow canvas { display: block; filter: drop-shadow(0 0 2px rgba(37,99,235,0.5)); }
 
 #map { border-radius: 10px; overflow: hidden; }
-.map-background #mapCanvasLayer { position: absolute; inset:0; }
-.map-background .leaflet-container { width:100%; height:100%; filter: brightness(0.8) saturate(120%); }
+/* Map panel (restored) */
+#map { width:100%; height:340px; margin-top:22px; background:#0f172a; border:1px solid rgba(59,130,246,0.18); box-shadow:0 3px 12px -3px rgba(0,0,0,0.55); border-radius:14px; }
+@media (min-width: 1024px) { #map { height: 440px; } }
+
+/* Wind map overlay removed */
 
 /* Fallback if Leaflet not loaded */
 .map-background.loading::after { content:'Loading map…'; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#bbb; font-size:14px; letter-spacing:1px; }
@@ -206,20 +238,19 @@ h1 {
 
 /* Custom Leaflet controls tweaks */
 .leaflet-control.opacity-control {
-    background: rgba(23, 23, 23, 0.9);
-    border: 1px solid #2a2a2a;
-    border-radius: 8px;
-    padding: 8px;
-    color: #eaeaea;
+    background: rgba(7,18,30,0.85);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 10px;
+    padding: 8px 10px 10px;
+    color: #eaf3ff;
+    box-shadow:0 2px 8px -2px rgba(0,0,0,0.6);
 }
 .leaflet-bar.action-buttons a {
-    background: #1f1f1f;
-    color: #eaeaea;
-    border: 1px solid #2a2a2a;
+    background: rgba(7,18,30,0.85);
+    color: #eaf3ff;
+    border: 1px solid rgba(59,130,246,0.35);
 }
-.leaflet-bar.action-buttons a:hover {
-    background: #2a2a2a;
-}
+.leaflet-bar.action-buttons a:hover { background: rgba(17,45,78,0.9); }
 
 /* Pulsing map marker */
 .pulse-wrapper { pointer-events: none; }
@@ -240,8 +271,8 @@ h1 {
 }
 
 /* Playback control */
-.leaflet-bar.playback a { background: #1f1f1f; color: #eaeaea; border: 1px solid #2a2a2a; }
-.leaflet-bar.playback a:hover { background: #2a2a2a; }
+.leaflet-bar.playback a { background: rgba(7,18,30,0.85); color: #eaf3ff; border: 1px solid rgba(59,130,246,0.35); }
+.leaflet-bar.playback a:hover { background: rgba(17,45,78,0.9); }
 .theme-light .leaflet-bar.playback a { background: #ffffff; color: #0f172a; border-color: #e5e7eb; }
 
 /* Sunrise/Sunset track */

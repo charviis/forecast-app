@@ -1,5 +1,8 @@
-// Wind animation state
-let windAnim = { particles: [], canvas: null, ctx: null, raf: 0, width: 0, height: 0, speed: 0, dirRad: 0 };
+// Wind animation state (inline small indicator) & background field
+let windAnim = { particles: [], canvas: null, ctx: null, raf: 0, width: 0, height: 0, speed: 0, dirRad: 0 }; // (deprecated inline indicator)
+// Removed full-screen wind animation; will use dynamic gradient backgrounds
+let windBg = null;
+// Removed windMapLayer overlay (map wind animation) per user request
 
 const apiKey = '02f58d74d2014ec45cd93186064f9142';
 const WEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather';
@@ -12,12 +15,12 @@ const geolocateButton = document.getElementById('geolocateButton');
 const unitToggle = document.getElementById('unitToggle');
 const clearButton = document.getElementById('clearButton');
 const statusEl = document.getElementById('status');
-const locationElement = document.getElementById('location');
-const temperatureElement = document.getElementById('temperature');
-const descriptionElement = document.getElementById('description');
-const humidityElement = document.getElementById('humidity');
-const windSpeedElement = document.getElementById('windSpeed');
-const feelsLikeElement = document.getElementById('feelsLike');
+let locationElement = document.getElementById('location');
+let temperatureElement = document.getElementById('temperature');
+let descriptionElement = document.getElementById('description');
+let humidityElement = document.getElementById('humidity');
+let windSpeedElement = document.getElementById('windSpeed');
+let feelsLikeElement = document.getElementById('feelsLike');
 const forecastGrid = document.getElementById('forecastGrid');
 // Extras & favorites
 const favoritesEl = document.getElementById('favorites');
@@ -45,16 +48,18 @@ let theme = localStorage.getItem('theme') || 'dark'; // 'dark' | 'light'
 let sunTimer = null;
 let playbackTimer = null;
 let playbackIndex = 0;
+let lastForecastWind = { dir: null, speed: null }; // averaged forecast wind
+let lastWeatherForBg = null;
 
-// Map (Leaflet) init guarded in case CDN fails (background map variant)
+// Map (Leaflet) init (original embedded panel)
 let map = null;
 let hasMap = false;
 let leafletLoading = false;
-let bgMapEl = document.getElementById('mapBackground');
+const mapPanelEl = document.getElementById('map');
 function loadLeafletFallback() {
     if (leafletLoading) return; // avoid duplicates
     leafletLoading = true;
-    if (bgMapEl) bgMapEl.classList.add('loading');
+    if (mapPanelEl) mapPanelEl.classList.add('loading');
     // Add CSS if missing
     if (!document.querySelector('link[data-leaflet-fallback]')) {
         const link = document.createElement('link');
@@ -70,7 +75,7 @@ function loadLeafletFallback() {
         s.defer = true;
         s.setAttribute('data-leaflet-fallback', '');
     s.onload = () => { leafletLoading = false; initMap(); };
-    s.onerror = () => { leafletLoading = false; if (bgMapEl) bgMapEl.classList.add('error'); setStatus('Map failed to load.', true); };
+    s.onerror = () => { leafletLoading = false; if (mapPanelEl) mapPanelEl.classList.add('error'); setStatus('Map failed to load.', true); };
         document.head.appendChild(s);
     }
 }
@@ -78,8 +83,7 @@ function loadLeafletFallback() {
 function initMap() {
     try {
         if (typeof L === 'undefined') { loadLeafletFallback(); return; }
-    // Use background container as map root, fallback to hidden #map
-    const containerId = bgMapEl ? 'mapBackground' : 'map';
+    const containerId = 'map';
     // Restore map view if available
     let savedView = null; try { savedView = JSON.parse(localStorage.getItem('mapView') || 'null'); } catch {}
         const startLat = savedView?.lat ?? 50.0755;
@@ -136,6 +140,7 @@ function initMap() {
         try {
             createPlaybackControl().addTo(map);
         } catch {}
+    // wind map overlay removed
 
         // Map click to get weather
         map.on('click', async (e) => {
@@ -159,11 +164,11 @@ function initMap() {
             resizeTimer = setTimeout(() => { try { map.invalidateSize(false); } catch {} }, 180);
         });
         hasMap = true;
-        if (bgMapEl) bgMapEl.classList.remove('loading');
+    if (mapPanelEl) mapPanelEl.classList.remove('loading');
         setStatus('');
     } catch (e) {
         console.error('Map init failed', e);
-        if (bgMapEl) bgMapEl.classList.add('error');
+    if (mapPanelEl) mapPanelEl.classList.add('error');
         setStatus('Map failed to initialize.', true);
     }
 }
@@ -233,88 +238,44 @@ function formatWind(speed) {
 function updateWeatherUI(data) {
     const tempUnit = units === 'metric' ? '°C' : '°F';
     locationElement.textContent = data.name || `${data.coord.lat.toFixed(2)}, ${data.coord.lon.toFixed(2)}`;
-    // Animate temp change
-    temperatureElement.classList.add('temp-fade');
-    const newTemp = `${Math.round(data.main.temp)}${tempUnit}`;
-    // Allow CSS to animate, then swap text
-    setTimeout(() => { temperatureElement.textContent = newTemp; temperatureElement.classList.remove('temp-fade'); }, 120);
     const desc = data.weather?.[0]?.description || '';
-    descriptionElement.textContent = desc.charAt(0).toUpperCase() + desc.slice(1);
-    humidityElement.textContent = `Humidity: ${data.main.humidity}%`;
     const deg = data.wind?.deg ?? 0;
-    windSpeedElement.innerHTML = `Wind: <span class="wind"><span class="arrow" style="transform: rotate(${deg}deg);">➤</span> ${formatWind(data.wind.speed)}</span>`;
+    const newTemp = `${Math.round(data.main.temp)}${tempUnit}`;
+    const feels = `${Math.round(data.main.feels_like)}${tempUnit}`;
+    const humidity = `${data.main.humidity}%`;
+    const windHtml = `<span class="wind"><span class="arrow" style="transform: rotate(${deg}deg);">➤</span> ${formatWind(data.wind.speed)}</span>`;
+    // Build boxed layout
+    const container = temperatureElement.parentElement; // .weather-info
+    if (container) {
+        container.innerHTML = `
+            <h2 id="location">${locationElement.textContent}</h2>
+            <div class="metrics-grid" aria-live="polite">
+                <div class="metric-box primary"><strong>Temp</strong><span id="temperature">${newTemp}</span></div>
+                <div class="metric-box"><strong>Feels</strong><span id="feelsLike">${feels}</span></div>
+                <div class="metric-box"><strong>Conditions</strong><span id="description">${desc.charAt(0).toUpperCase() + desc.slice(1)}</span></div>
+                <div class="metric-box"><strong>Humidity</strong><span id="humidity">${humidity}</span></div>
+                <div class="metric-box"><strong>Wind</strong><span id="windSpeed">${windHtml}</span></div>
+            </div>`;
+    }
+    // Re-wire references after rebuild
+    temperatureElement = document.getElementById('temperature');
+    descriptionElement = document.getElementById('description');
+    humidityElement = document.getElementById('humidity');
+    windSpeedElement = document.getElementById('windSpeed');
+    feelsLikeElement = document.getElementById('feelsLike');
     // Animated wind particles
-    try { initWindFlow(data.wind.speed, deg); } catch {}
+    try {
+        // Remove any old inline wind animation element (deprecated)
+        const oldInline = windSpeedElement.querySelector('.wind-flow');
+        if (oldInline) oldInline.remove();
+        // Update full-screen background wind field
+    try { updateDynamicBackground(data); } catch {}
+    } catch {}
 
 
 // Wind animation (simple particle flow indicating speed & direction)
-function initWindFlow(speed, deg) {
-    if (!windSpeedElement) return;
-    let flow = windSpeedElement.querySelector('.wind-flow');
-    if (!flow) {
-        flow = document.createElement('div');
-        flow.className = 'wind-flow';
-        flow.innerHTML = '<canvas aria-hidden="true"></canvas>';
-        windSpeedElement.appendChild(flow);
-    }
-    const canvas = flow.querySelector('canvas');
-    const ctx = canvas.getContext('2d');
-    // Resize
-    const desiredW = 140; const desiredH = 34;
-    if (canvas.width !== desiredW) { canvas.width = desiredW; canvas.style.width = desiredW+'px'; }
-    if (canvas.height !== desiredH) { canvas.height = desiredH; canvas.style.height = desiredH+'px'; }
-    windAnim.width = desiredW; windAnim.height = desiredH; windAnim.canvas = canvas; windAnim.ctx = ctx;
-    windAnim.speed = Math.max(0, speed || 0);
-    // Convert meteorological deg (from which it blows) to direction of particle motion (to where it goes)
-    windAnim.dirRad = ((deg + 180) % 360) * Math.PI / 180;
-    const particleCount = 22;
-    if (!windAnim.particles.length) {
-        for (let i = 0; i < particleCount; i++) windAnim.particles.push(makeWindParticle());
-    } else if (windAnim.particles.length !== particleCount) {
-        windAnim.particles = [];
-        for (let i = 0; i < particleCount; i++) windAnim.particles.push(makeWindParticle());
-    }
-    if (!windAnim.raf) animateWind();
-}
-function makeWindParticle() {
-    const t = Math.random();
-    return {
-        x: Math.random() * windAnim.width,
-        y: Math.random() * windAnim.height,
-        life: t * 1,
-        len: 8 + Math.random() * 12,
-        drift: (Math.random() - 0.5) * 0.4
-    };
-}
-function animateWind(ts) {
-    const { ctx, width:w, height:h, particles, speed, dirRad } = windAnim;
-    if (!ctx) return;
-    ctx.clearRect(0,0,w,h);
-    const vx = Math.cos(dirRad);
-    const vy = Math.sin(dirRad);
-    // Base velocity scale: px/sec ~ 18 * speed(m/s); convert to frame delta using fixed dt assumption
-    const vScale = (speed || 0) * 18 / 60; // per frame (~60fps)
-    particles.forEach(p => {
-        p.x += vx * vScale + p.drift;
-        p.y += vy * vScale + p.drift * 0.3;
-        p.life += 0.015 + (speed/300);
-        // Wrap
-        if (p.x < -20) p.x = w + 10;
-        if (p.x > w + 20) p.x = -10;
-        if (p.y < -20) p.y = h + 10;
-        if (p.y > h + 20) p.y = -10;
-        // Draw trail
-        const fade = 0.2 + 0.8 * (1 - (p.life % 1));
-        ctx.strokeStyle = `rgba(59,130,246,${fade})`;
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - vx * p.len, p.y - vy * p.len);
-        ctx.stroke();
-    });
-    windAnim.raf = requestAnimationFrame(animateWind);
-}
-    feelsLikeElement.textContent = `Feels like: ${Math.round(data.main.feels_like)}${tempUnit}`;
+// (Removed inline wind animation functions)
+    // Feels like already inserted
     // Local time & sun
     try {
         if (typeof data.timezone === 'number' && localTimeEl) {
@@ -345,7 +306,7 @@ function renderForecast(list) {
     });
     const days = Object.keys(byDay).sort().slice(0, 5);
     const tempUnit = units === 'metric' ? '°C' : '°F';
-    forecastGrid.innerHTML = days.map(day => {
+     forecastGrid.innerHTML = days.map(day => {
         const items = byDay[day];
         let pick = items.find(i => new Date(i.dt * 1000).getHours() === 12) || items[Math.floor(items.length / 2)];
         const d = new Date(pick.dt * 1000);
@@ -361,12 +322,32 @@ function renderForecast(list) {
             <div class="forecast-card" role="group" aria-label="${weekday} forecast">
                 <div class="day">${weekday}</div>
                 ${iconUrl ? `<img src="${iconUrl}" alt="${desc}" width="60" height="60" loading="lazy">` : ''}
-                <div class="temp">${temp}${tempUnit}</div>
-                <div class="desc">${desc}</div>
-                <div class="minmax">${min}${tempUnit} / ${max}${tempUnit}${pop ? ` · ${pop}%` : ''}</div>
+                     <div class="boxes">
+                         <div class="box temp-box">${temp}${tempUnit}</div>
+                         <div class="box desc-box">${desc}</div>
+                         <div class="box minmax-box">Low ${min}${tempUnit} · High ${max}${tempUnit}</div>
+                         ${pop ? `<div class="box pop-box">Precip ${pop}%</div>` : ''}
+                     </div>
             </div>
         `;
     }).join('');
+}
+
+// Average near-term forecast wind (next ~24h) and feed background animation
+function updateBackgroundWindFromForecast(list) {
+    if (!Array.isArray(list) || !list.length) return;
+    const sample = list.slice(0, 8); // first 8 *3h = 24h
+    const dirs = []; const speeds = [];
+    sample.forEach(item => {
+        if (item.wind && typeof item.wind.deg === 'number') dirs.push(item.wind.deg);
+        if (item.wind && typeof item.wind.speed === 'number') speeds.push(item.wind.speed);
+    });
+    if (!dirs.length) return;
+    let sx=0, sy=0; dirs.forEach(d => { const r = d*Math.PI/180; sx += Math.cos(r); sy += Math.sin(r); });
+    let avgDir = Math.atan2(sy, sx) * 180/Math.PI; if (avgDir < 0) avgDir += 360;
+    const avgSpeed = speeds.length ? speeds.reduce((a,b)=>a+b,0)/speeds.length : 0;
+    lastForecastWind = { dir: avgDir, speed: avgSpeed };
+    // wind overlay removed
 }
 
 async function fetchJSON(url) {
@@ -428,6 +409,7 @@ async function fetchForecast(lat, lon) {
     try {
         const data = await fetchJSON(url);
         renderForecast(data.list || []);
+        updateBackgroundWindFromForecast(data.list || []);
     renderHourlyChart(data.list || []);
     } catch (e) {
         console.warn('Forecast failed', e);
@@ -849,3 +831,32 @@ function setupOrUpdateSunTrack(data) {
         sunTimer = setInterval(update, 30000);
     } catch {}
 }
+
+// Full-screen wind background animation
+// Dynamic background gradient updater
+function updateDynamicBackground(weatherData) {
+    if (!weatherData) return;
+    lastWeatherForBg = weatherData;
+    const code = weatherData.weather?.[0]?.id || 800; // OWM condition code
+    const now = getLocalTimeMs(weatherData.timezone || 0);
+    const sunR = weatherData.sys?.sunrise ? weatherData.sys.sunrise*1000 : now - 3600000;
+    const sunS = weatherData.sys?.sunset ? weatherData.sys.sunset*1000 : now + 3600000;
+    let phase = 'day';
+    const preDawn = sunR - 40*60000;
+    const duskEnd = sunS + 30*60000;
+    if (now < preDawn || now > duskEnd) phase = 'night';
+    else if (now >= preDawn && now < sunR + 45*60000) phase = 'morning';
+    else if (now > sunS - 50*60000 && now <= duskEnd) phase = 'evening';
+    else phase = 'day';
+    // Weather overrides
+    let weatherClass = '';
+    if (code >= 200 && code < 600) weatherClass = 'bg-rain';
+    if (code >= 600 && code < 700) weatherClass = 'bg-snow';
+    const baseClass = `bg-${weatherClass ? weatherClass.split('-')[1] : phase}`;
+    // Remove old bg-* classes
+    document.body.className = document.body.className.replace(/\bbg-[a-z]+\b/g,'').trim();
+    document.body.classList.add(weatherClass || baseClass);
+}
+
+// Leaflet map wind overlay
+// (Wind map overlay code removed)
