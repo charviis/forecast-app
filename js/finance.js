@@ -1,15 +1,37 @@
 // Placeholder finance module
 // Future: fetch market & commodity data, correlate with weather.
-const API_BASE = (location.protocol === 'file:' ? 'http://localhost:4000' : '');
+const API_BASES = (() => {
+  const bases = [];
+  const cur = location.origin;
+  // If loaded via file://, origin is 'null'
+  if(location.protocol === 'file:') {
+    bases.push('http://localhost:4000');
+  } else {
+    bases.push(''); // relative first
+    if(!/:(4000)$/.test(location.host)) bases.push('http://localhost:4000');
+  }
+  bases.push('http://127.0.0.1:4000');
+  return [...new Set(bases)];
+})();
+
+async function fetchFinance(){
+  let lastErr; let respJson;
+  for(const base of API_BASES){
+    try {
+      const r = await fetch(base + '/api/finance/overview');
+      if(!r.ok) { lastErr = new Error(base+': HTTP '+r.status); continue; }
+      respJson = await r.json();
+      return respJson;
+    } catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('All finance endpoints failed');
+}
 
 export function initFinance(){
   const list = document.getElementById('financeList');
   if(!list) return;
   list.innerHTML = '<li>Loading finance overview…</li>';
-fetch(API_BASE + '/api/finance/overview').then(r=>{
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.json();
-    }).then(json => {
+fetchFinance().then(json => {
       if(!json?.data) { list.innerHTML='<li>Failed to load finance data</li>'; return; }
       list.innerHTML = json.data.map(d=>{
         const price = d.price!=null ? d.price : '—';
@@ -19,6 +41,6 @@ fetch(API_BASE + '/api/finance/overview').then(r=>{
       if(json.notice){
         list.insertAdjacentHTML('beforeend', `<li style="opacity:.6;font-size:.6rem;">${json.notice}</li>`);
       }
-  }).catch(err=>{ console.error('Finance fetch error', err); list.innerHTML=`<li>Error loading finance data: <span style='opacity:.7'>${err.message}</span>${API_BASE?" (Did you start the server?)":""}</li>`; });
+  }).catch(err=>{ console.error('Finance fetch error', err); list.innerHTML=`<li>Error loading finance data: <span style='opacity:.7'>${err.message}</span> (Tried ${API_BASES.join(', ')})</li>`; });
 }
 initFinance();
