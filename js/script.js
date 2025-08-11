@@ -1,3 +1,6 @@
+// Wind animation state
+let windAnim = { particles: [], canvas: null, ctx: null, raf: 0, width: 0, height: 0, speed: 0, dirRad: 0 };
+
 const apiKey = '02f58d74d2014ec45cd93186064f9142';
 const WEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather';
 const FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast'; // 5-day / 3-hour forecast
@@ -236,6 +239,77 @@ function updateWeatherUI(data) {
     humidityElement.textContent = `Humidity: ${data.main.humidity}%`;
     const deg = data.wind?.deg ?? 0;
     windSpeedElement.innerHTML = `Wind: <span class="wind"><span class="arrow" style="transform: rotate(${deg}deg);">➤</span> ${formatWind(data.wind.speed)}</span>`;
+    // Animated wind particles
+    try { initWindFlow(data.wind.speed, deg); } catch {}
+
+
+// Wind animation (simple particle flow indicating speed & direction)
+function initWindFlow(speed, deg) {
+    if (!windSpeedElement) return;
+    let flow = windSpeedElement.querySelector('.wind-flow');
+    if (!flow) {
+        flow = document.createElement('div');
+        flow.className = 'wind-flow';
+        flow.innerHTML = '<canvas aria-hidden="true"></canvas>';
+        windSpeedElement.appendChild(flow);
+    }
+    const canvas = flow.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    // Resize
+    const desiredW = 140; const desiredH = 34;
+    if (canvas.width !== desiredW) { canvas.width = desiredW; canvas.style.width = desiredW+'px'; }
+    if (canvas.height !== desiredH) { canvas.height = desiredH; canvas.style.height = desiredH+'px'; }
+    windAnim.width = desiredW; windAnim.height = desiredH; windAnim.canvas = canvas; windAnim.ctx = ctx;
+    windAnim.speed = Math.max(0, speed || 0);
+    // Convert meteorological deg (from which it blows) to direction of particle motion (to where it goes)
+    windAnim.dirRad = ((deg + 180) % 360) * Math.PI / 180;
+    const particleCount = 22;
+    if (!windAnim.particles.length) {
+        for (let i = 0; i < particleCount; i++) windAnim.particles.push(makeWindParticle());
+    } else if (windAnim.particles.length !== particleCount) {
+        windAnim.particles = [];
+        for (let i = 0; i < particleCount; i++) windAnim.particles.push(makeWindParticle());
+    }
+    if (!windAnim.raf) animateWind();
+}
+function makeWindParticle() {
+    const t = Math.random();
+    return {
+        x: Math.random() * windAnim.width,
+        y: Math.random() * windAnim.height,
+        life: t * 1,
+        len: 8 + Math.random() * 12,
+        drift: (Math.random() - 0.5) * 0.4
+    };
+}
+function animateWind(ts) {
+    const { ctx, width:w, height:h, particles, speed, dirRad } = windAnim;
+    if (!ctx) return;
+    ctx.clearRect(0,0,w,h);
+    const vx = Math.cos(dirRad);
+    const vy = Math.sin(dirRad);
+    // Base velocity scale: px/sec ~ 18 * speed(m/s); convert to frame delta using fixed dt assumption
+    const vScale = (speed || 0) * 18 / 60; // per frame (~60fps)
+    particles.forEach(p => {
+        p.x += vx * vScale + p.drift;
+        p.y += vy * vScale + p.drift * 0.3;
+        p.life += 0.015 + (speed/300);
+        // Wrap
+        if (p.x < -20) p.x = w + 10;
+        if (p.x > w + 20) p.x = -10;
+        if (p.y < -20) p.y = h + 10;
+        if (p.y > h + 20) p.y = -10;
+        // Draw trail
+        const fade = 0.2 + 0.8 * (1 - (p.life % 1));
+        ctx.strokeStyle = `rgba(59,130,246,${fade})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - vx * p.len, p.y - vy * p.len);
+        ctx.stroke();
+    });
+    windAnim.raf = requestAnimationFrame(animateWind);
+}
     feelsLikeElement.textContent = `Feels like: ${Math.round(data.main.feels_like)}${tempUnit}`;
     // Local time & sun
     try {

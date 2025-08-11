@@ -176,6 +176,8 @@ h1 {
 .forecast-card .minmax { color: #bdbdbd; font-size: 0.85em; margin-top: 4px; }
 .wind { display: inline-flex; align-items: center; gap: 6px; }
 .wind .arrow { display: inline-block; transform-origin: 50% 50%; }
+.wind-flow { position: relative; display: inline-block; margin-left: 6px; }
+.wind-flow canvas { display: block; filter: drop-shadow(0 0 2px rgba(37,99,235,0.5)); }
 
 #map { border-radius: 10px; overflow: hidden; }
 
