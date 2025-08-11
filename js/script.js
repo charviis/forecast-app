@@ -324,8 +324,14 @@ function updateWeatherUI(data) {
             const localMs = getLocalTimeMs(data.timezone);
             localTimeEl.textContent = `Local time: ${new Date(localMs).toLocaleString([], { hour: '2-digit', minute: '2-digit', weekday: 'short' })}`;
         }
-        if (sunriseEl && data.sys?.sunrise) sunriseEl.textContent = `Sunrise: ${new Date(data.sys.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        if (sunsetEl && data.sys?.sunset) sunsetEl.textContent = `Sunset: ${new Date(data.sys.sunset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        if (sunriseEl && data.sys?.sunrise) {
+            const sr = new Date((data.sys.sunrise + data.timezone) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone:'UTC' });
+            sunriseEl.textContent = `Sunrise: ${sr}`;
+        }
+        if (sunsetEl && data.sys?.sunset) {
+            const ss = new Date((data.sys.sunset + data.timezone) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone:'UTC' });
+            sunsetEl.textContent = `Sunset: ${ss}`;
+        }
         setupOrUpdateSunTrack(data);
     } catch {}
 }
@@ -398,8 +404,10 @@ function updateSportsScore(data){
 // Compute local time ms given OWM timezone (seconds from UTC)
 function getLocalTimeMs(owmTzSeconds) {
     const now = Date.now();
-    const utcNow = now + (new Date().getTimezoneOffset() * -60000);
-    return utcNow + (owmTzSeconds * 1000);
+    // Browser offset is minutes behind UTC (e.g. CET = -60); convert to ms.
+    const localOffsetMs = new Date().getTimezoneOffset() * 60000; // positive if behind UTC
+    const utcNow = now + localOffsetMs; // normalize to UTC
+    return utcNow + (owmTzSeconds * 1000); // add target location shift
 }
 
 function renderForecast(list) {

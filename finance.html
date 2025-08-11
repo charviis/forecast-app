@@ -1,46 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Finance & Weather Sensitivity | Global Dashboard</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="css/styles.css" />
-<meta name="description" content="Finance channel: market overview with weather sensitivity and commodity outlook." />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Finance Dashboard</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="css/styles.css" />
+    <meta name="description"
+        content="Finance channel: market overview with weather sensitivity and commodity outlook." />
 </head>
+
 <body>
-<main class="page" id="mainContent">
-  <div class="container">
-    <h1>Finance & Weather</h1>
-    <nav class="site-nav main-nav" aria-label="Primary navigation">
-      <ul>
-  <li><a class="btn" href="index.html">Weather</a></li>
-  <li><a class="btn" href="finance.html" aria-current="page">Finance</a></li>
-  <li><a class="btn" href="news.html">News</a></li>
-      </ul>
-    </nav>
-    <section aria-labelledby="marketHeading">
-      <h2 id="marketHeading">Market Overview</h2>
-      <ul id="financeList" class="mini-list" aria-live="polite"></ul>
-    </section>
-    <section aria-labelledby="commodityHeading">
-      <h2 id="commodityHeading">Commodity & Weather Links</h2>
-      <ul id="commodityList" class="mini-list" aria-live="polite"></ul>
-    </section>
-  </div>
-</main>
-<script type="module" src="js/finance.js"></script>
-<script type="module">
-// extra placeholder commodity logic
-const commodityList = document.getElementById('commodityList');
-if(commodityList){
-  const data = [
-    { name:'Wheat', note:'Watching rainfall patterns in major belts' },
-    { name:'Natural Gas', note:'Cooling/heating degree day deviation' },
-    { name:'Coffee', note:'Temperature + humidity stress index' }
-  ];
-  commodityList.innerHTML = data.map(d=>`<li><strong>${d.name}:</strong> ${d.note}</li>`).join('');
-}
-</script>
+    <main class="page" id="mainContent">
+        <div class="container finance-dash">
+            <h1 class="page-title">Finance Dashboard</h1>
+            <nav class="site-nav main-nav" aria-label="Primary navigation">
+                <ul>
+                    <li><a class="btn" href="index.html">Weather</a></li>
+                    <li><a class="btn" href="finance.html" aria-current="page">Finance</a></li>
+                </ul>
+            </nav>
+            <section aria-labelledby="overviewHeading">
+                <h2 id="overviewHeading" class="section-heading">Overview</h2>
+                <div class="panel glass panel-primary">
+                    <form id="singleForm" class="form-inline">
+                        <input id="singleSymbol" class="input-glass fs-s symbol-input" placeholder="Symbol"
+                            value="AAPL" />
+                        <button class="btn fs-xs" type="submit">Load</button>
+                        <button class="btn fs-xs" type="button" id="refreshSingle">Refresh</button>
+                        <label class="label-inline fs-xxs">Auto <input type="checkbox" id="autoRefresh"
+                                checked /></label>
+                        <div class="search-wrap">
+                            <input id="symbolSearch" class="input-glass fs-s search-input" placeholder="Search" />
+                            <div id="searchResults" class="search-results"></div>
+                        </div>
+                        <div class="select-wrap">
+                            <select id="regionSelect" class="btn select-glass fs-xs">
+                                <option value="EU">EU</option>
+                                <option value="US">US</option>
+                                <option value="GB">GB</option>
+                                <option value="CA">CA</option>
+                                <option value="DE">DE</option>
+                                <option value="FR">FR</option>
+                                <option value="IN">IN</option>
+                            </select>
+                        </div>
+                    </form>
+                    <div id="quoteMeta" class="meta-bar"></div>
+                    <div id="sparkWrap" class="spark-wrap" hidden>
+                        <canvas id="sparkCanvas" height="40" class="spark-canvas"></canvas>
+                        <div id="sparkMeta" class="spark-meta"></div>
+                    </div>
+                    <div class="meta-line">
+                        <span>APIs: get-quotes / get-spark / trending</span>
+                        <label class="label-inline">Direct Public <input id="directPublicToggle"
+                                type="checkbox" /></label>
+                        <span id="lastUpdated"></span>
+                        <span id="financeStatus" class="status-accent"></span>
+                    </div>
+                </div>
+                <div class="panel glass panel-trending" aria-labelledby="trendingHeading">
+                    <div class="panel-head">
+                        <h3 id="trendingHeading" class="panel-title">Trending <span id="trendRegion"
+                                class="subtle"></span></h3>
+                        <div class="actions">
+                            <button id="reloadTrending" class="btn fs-xxs">Reload</button>
+                            <button id="addFirstTrend" class="btn fs-xxs">Add First</button>
+                        </div>
+                    </div>
+                    <div id="trendingList" class="trending-list" aria-live="polite"></div>
+                </div>
+                <div class="panel glass panel-summary" aria-labelledby="summaryHeading">
+                    <div class="panel-head">
+                        <h3 id="summaryHeading" class="panel-title">Market Summary</h3>
+                        <button id="summaryReload" class="btn fs-xxs">Reload</button>
+                    </div>
+                    <div id="summaryContent" class="summary-grid" aria-live="polite"></div>
+                    <div id="summaryStatus" class="summary-status"></div>
+                </div>
+                <div id="dailyWrap" class="panel glass panel-candles" hidden aria-labelledby="candlesHeading">
+                    <div class="panel-head">
+                        <h3 id="candlesHeading" class="panel-title">Candles</h3>
+                        <div id="rangeButtons" class="range-buttons" role="tablist" aria-label="Select range">
+                            <button class="btn range-btn active fs-xxs" data-r="1d" role="tab"
+                                aria-selected="true">1D</button>
+                            <button class="btn range-btn fs-xxs" data-r="5d" role="tab"
+                                aria-selected="false">5D</button>
+                            <button class="btn range-btn fs-xxs" data-r="1mo" role="tab"
+                                aria-selected="false">1M</button>
+                            <button class="btn range-btn fs-xxs" data-r="3mo" role="tab"
+                                aria-selected="false">3M</button>
+                            <button class="btn range-btn fs-xxs" data-r="6mo" role="tab"
+                                aria-selected="false">6M</button>
+                            <button class="btn range-btn fs-xxs" data-r="1y" role="tab"
+                                aria-selected="false">1Y</button>
+                        </div>
+                    </div>
+                    <canvas id="dailyChart" height="210" class="candles-canvas"></canvas>
+                    <div id="dailyMeta" class="daily-meta" aria-live="polite"></div>
+                </div>
+            </section>
+            <template id="searchItemTpl">
+                <div class="search-item" data-sym="SYMBOL">TEXT</div>
+            </template>
+        </div>
+    </main>
+    <script type="module" src="js/finance-pure.js"></script>
+        <script>
+        // Auto-load EU market summary (adapted from provided HTTPS snippet, using backend proxy)
+        (function(){
+            const regionSel = document.getElementById('regionSelect');
+            if(regionSel) regionSel.value='EU';
+            function loadEUSummary(){
+                // reuse existing loadSummary if defined by finance-pure.js
+                if(typeof loadSummary === 'function') { loadSummary(); return; }
+                fetch('/api/market/summary?region=EU')
+                    .then(r=>r.json())
+                    .then(data=>{
+                        const wrap=document.getElementById('summaryContent');
+                        const status=document.getElementById('summaryStatus');
+                        if(!data || !data.data){ if(status) status.textContent='No summary'; return; }
+                        const results=data.data.marketSummaryAndSparkResponse?.result||[];
+                        wrap.innerHTML=results.slice(0,8).map(item=>{
+                            const price=item?.regularMarketPrice?.raw;
+                            const change=item?.regularMarketChange?.raw;
+                            const pct=item?.regularMarketChangePercent?.raw;
+                            if(price==null) return '';
+                            const col=pct>0?'#16a34a':pct<0?'#dc2626':'#94a3b8';
+                            return `<div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.12);border-radius:10px;background:rgba(255,255,255,0.04);display:flex;flex-direction:column;gap:2px;">`
+                                + `<span style=\"font-size:.48rem;opacity:.65;\">${item.shortName||item.symbol}</span>`
+                                + `<span style=\"font-weight:600;\">${price.toFixed(2)}</span>`
+                                + `<span style=\"color:${col};font-size:.48rem;\">${change>0?'+':''}${change?.toFixed(2)} (${pct>0?'+':''}${(pct*100).toFixed(2)}%)</span>`
+                                + `</div>`;
+                        }).join('');
+                        if(status) status.textContent='EU summary ' + new Date().toLocaleTimeString();
+                    })
+                    .catch(()=>{ const s=document.getElementById('summaryStatus'); if(s) s.textContent='Error'; });
+            }
+            if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadEUSummary); else loadEUSummary();
+        })();
+        </script>
 </body>
+
 </html>
