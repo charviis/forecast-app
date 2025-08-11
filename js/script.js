@@ -40,7 +40,8 @@ const hourlyChartEl = document.getElementById('hourlyChart');
 
 // State
 let units = (localStorage.getItem('units') === 'imperial') ? 'imperial' : 'metric'; // 'metric' | 'imperial'
-let markers = [];
+let markers = []; // includes pointer, pulse, and static pins
+let staticPins = []; // only persistent pins
 let pointerMarker = null;
 let pulseMarker = null;
 let activeReq = 0; // request token to avoid race conditions
@@ -237,28 +238,49 @@ function applyTheme(next) {
 }
 applyTheme(theme);
 
-function clearMarkers() {
-    if (!hasMap) { markers = []; return; }
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
+function clearMarkers() { // unchanged external API, but keep static pins unless explicitly needed later
+    if (!hasMap) { markers = []; staticPins = []; return; }
+    markers.forEach(m => { try { map.removeLayer(m); } catch {} });
+    markers = []; staticPins = [];
+    pointerMarker = null; pulseMarker = null;
 }
 
 function addMarker(lat, lon, label) {
     if (!hasMap) return;
     if (!pointerMarker) {
+        // First (default) pointer marker
         pointerMarker = L.marker([lat, lon], { draggable: true }).addTo(map);
         pointerMarker.on('dragend', () => {
             const p = pointerMarker.getLatLng();
             fetchWeatherByCoords(p.lat, p.lng).catch(()=>{});
         });
-        pointerMarker.on('drag', () => {
-            if (pulseMarker) pulseMarker.setLatLng(pointerMarker.getLatLng());
-        });
+        pointerMarker.on('drag', () => { if (pulseMarker) pulseMarker.setLatLng(pointerMarker.getLatLng()); });
         markers.push(pointerMarker);
     } else {
+        // Drop a static pin at previous pointer location before moving
+        try {
+            const prev = pointerMarker.getLatLng();
+            const exists = staticPins.some(pin => {
+                const pl = pin.getLatLng();
+                return Math.abs(pl.lat - prev.lat) < 0.0005 && Math.abs(pl.lng - prev.lng) < 0.0005; // tiny tolerance
+            });
+            if (!exists) {
+                const pin = L.circleMarker([prev.lat, prev.lng], {
+                    radius: 6,
+                    color: '#2563eb',
+                    weight: 2,
+                    fillColor: '#60a5fa',
+                    fillOpacity: 0.85,
+                    pane: 'markerPane'
+                }).addTo(map);
+                if (label) pin.bindPopup(label);
+                staticPins.push(pin);
+                markers.push(pin);
+            }
+        } catch {}
         pointerMarker.setLatLng([lat, lon]);
     }
-    // Pulse decoration marker
+    // Pulse decoration marker follows pointer
     try {
         const pulseIcon = L.divIcon({
             className: 'pulse-wrapper',
@@ -270,9 +292,7 @@ function addMarker(lat, lon, label) {
             pulseMarker = L.marker([lat, lon], { icon: pulseIcon, interactive: false, keyboard: false, zIndexOffset: -1000 });
             pulseMarker.addTo(map);
             markers.push(pulseMarker);
-        } else {
-            pulseMarker.setLatLng([lat, lon]);
-        }
+        } else { pulseMarker.setLatLng([lat, lon]); }
     } catch {}
     if (label) pointerMarker.bindPopup(label).openPopup();
 }
@@ -432,7 +452,7 @@ async function fetchWeatherByCoords(lat, lon) {
         const data = await fetchJSON(url);
         if (reqId !== activeReq) return; // stale response ignored
         if (hasMap) map.setView([lat, lon], 12);
-        clearMarkers();
+        // Preserve existing markers/pins now (no clear) and move pointer while dropping previous static pin
     addMarker(lat, lon, `Location: ${data.name || lat.toFixed(3)+', '+lon.toFixed(3)}`);
     updateWeatherUI(data);
     // Persist last coords
