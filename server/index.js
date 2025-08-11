@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import cors from 'cors';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
@@ -8,6 +10,11 @@ import fetch from 'node-fetch';
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Serve static frontend (project root one level up from server directory)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const staticRoot = path.join(__dirname, '..');
+app.use(express.static(staticRoot));
 
 let db;
 (async () => {
@@ -147,5 +154,71 @@ app.post('/api/cache/cleanup', async (_req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Finance sample endpoint (placeholder logic)
+app.get('/api/finance/overview', async (_req, res) => {
+  const fallback = () => ({
+    data: [
+      { symbol: 'NG=F', name: 'Natural Gas', price: null, changePct: null, weatherNote: 'Cooling demand context' },
+      { symbol: 'CL=F', name: 'Crude Oil', price: null, changePct: null, weatherNote: 'Energy demand context' },
+      { symbol: 'ZW=F', name: 'Wheat', price: null, changePct: null, weatherNote: 'Crop weather watch' }
+    ],
+    cached: true,
+    notice: 'Fallback static data - live fetch failed',
+    ts: Date.now()
+  });
+  try {
+    const symbols = ['CL=F','NG=F','ZW=F'];
+    const url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbols.join(',');
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if(!r.ok) return res.json(fallback());
+    const j = await r.json();
+    const noteMap = {
+      'CL=F':'Energy demand context',
+      'NG=F':'Temperature-driven demand',
+      'ZW=F':'Crop weather watch'
+    };
+    const data = (j.quoteResponse?.result||[]).map(q => ({
+      symbol: q.symbol,
+      name: q.shortName || q.symbol,
+      price: q.regularMarketPrice ?? null,
+      changePct: q.regularMarketChangePercent != null ? Number(q.regularMarketChangePercent.toFixed(2)) : null,
+      weatherNote: noteMap[q.symbol] || 'Weather sensitivity'
+    }));
+    if(!data.length) return res.json(fallback());
+    res.json({ data, ts: Date.now(), source: 'yahoo' });
+  } catch (e) {
+    res.json(fallback());
+  }
+});
+
+// News sample endpoint (placeholder logic)
+app.get('/api/news/headlines', async (_req, res) => {
+  const rssUrl = 'https://climate.nasa.gov/news/rss.xml';
+  try {
+    const r = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if(!r.ok) throw new Error('RSS fetch failed');
+    const xml = await r.text();
+    // crude parse first 6 <item> titles
+    const itemBlocks = xml.split('<item>').slice(1, 7);
+    const items = itemBlocks.map((block, i) => {
+      const titleMatch = block.match(/<title>(.*?)<\/title>/i);
+      let title = titleMatch ? titleMatch[1] : 'Untitled';
+      title = title.replace(/<!\[CDATA\[/g,'').replace(/]]>/g,'').trim();
+      const linkMatch = block.match(/<link>(.*?)<\/link>/i);
+      const link = linkMatch ? linkMatch[1].trim() : null;
+      return { id: 'nasa'+i, title, category: 'Climate', source: 'NASA', url: link };
+    });
+    if(!items.length) throw new Error('No items parsed');
+    res.json({ items, ts: Date.now(), source: 'nasa_rss' });
+  } catch (e) {
+    // fallback static
+    res.json({ items: [
+      { id: 'f1', title: 'Fallback: Monitoring global climate signals', category: 'Climate' },
+      { id: 'f2', title: 'Fallback: Seasonal outlook update pending', category: 'Outlook' },
+      { id: 'f3', title: 'Fallback: Severe weather preparedness tips', category: 'Advisory' }
+    ], fallback: true, ts: Date.now() });
+  }
+});
+
 const port = process.env.PORT || 4000;
-app.listen(port, () => console.log('API listening on :' + port));
+app.listen(port, () => console.log('Server & API listening on http://localhost:' + port));

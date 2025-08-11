@@ -318,6 +318,7 @@ function updateWeatherUI(data) {
     if (windSpeedElement) windSpeedElement.innerHTML = windHtml;
     try { updateDynamicBackground(data); } catch {}
     try { updateSportsScore(data); } catch {}
+    try { updateStructuredData(data); } catch {}
     try {
         if (typeof data.timezone === 'number' && localTimeEl) {
             const localMs = getLocalTimeMs(data.timezone);
@@ -327,6 +328,28 @@ function updateWeatherUI(data) {
         if (sunsetEl && data.sys?.sunset) sunsetEl.textContent = `Sunset: ${new Date(data.sys.sunset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         setupOrUpdateSunTrack(data);
     } catch {}
+}
+
+// Inject per-location structured data (WeatherObservation)
+function updateStructuredData(data){
+    const tag = document.getElementById('weather-structured-data');
+    if(!tag) return;
+    const payload = {
+        '@context':'https://schema.org',
+        '@type':'WeatherObservation',
+        'name': data.name || 'Location',
+        'weatherCondition': data.weather?.[0]?.main || '',
+        'description': data.weather?.[0]?.description || '',
+        'temperature': data.main?.temp,
+        'temperatureUnit': units==='metric'?'Celsius':'Fahrenheit',
+        'windSpeed': data.wind?.speed,
+        'windDirection': data.wind?.deg,
+        'humidity': data.main?.humidity,
+        'pressure': data.main?.pressure,
+        'observationTime': new Date(data.dt*1000).toISOString(),
+        'geo': {'@type':'GeoCoordinates','latitude':data.coord?.lat,'longitude':data.coord?.lon}
+    };
+    tag.textContent = JSON.stringify(payload);
 }
 
 // Sports suitability score (0-100) based on temp, wind, humidity, conditions
@@ -719,6 +742,41 @@ if (!initialized) fetchWeatherByCoords(50.0755, 14.4378).catch(() => {});
 // Offline / online indicators
 window.addEventListener('offline', ()=> setStatus('Offline – data may be outdated', true));
 window.addEventListener('online', ()=> setStatus('Online', false));
+
+// Channel switching (weather/finance/news)
+(() => {
+    const channelButtons = Array.from(document.querySelectorAll('.channel-btn'));
+    if(!channelButtons.length) return;
+    const channels = Array.from(document.querySelectorAll('.channel'));
+    const show = (key) => {
+        channels.forEach(ch => {
+            const active = ch.dataset.channel === key;
+            if(active){ ch.hidden = false; ch.classList.add('active'); }
+            else { ch.hidden = true; ch.classList.remove('active'); }
+        });
+        channelButtons.forEach(btn => {
+            const active = btn.getAttribute('data-channel-target') === key;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true':'false');
+            if(active) btn.setAttribute('tabindex','0'); else btn.setAttribute('tabindex','-1');
+        });
+        // Lazy load placeholder enrichment
+        if(key==='finance') {
+            import('./finance.js').then(m=>m.initFinance?.());
+        } else if(key==='news') {
+            import('./news.js').then(m=>m.initNews?.());
+        }
+    };
+    channelButtons.forEach(btn => btn.addEventListener('click', () => show(btn.getAttribute('data-channel-target'))));
+    // Keyboard arrow navigation
+    document.addEventListener('keydown', (e) => {
+        if(!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+        const idx = channelButtons.findIndex(b => b.classList.contains('active'));
+        if(idx<0) return; e.preventDefault();
+        const next = e.key==='ArrowRight' ? (idx+1)%channelButtons.length : (idx-1+channelButtons.length)%channelButtons.length;
+        channelButtons[next].focus(); channelButtons[next].click();
+    });
+})();
 
 // Favorites helpers
 function getFavorites() {

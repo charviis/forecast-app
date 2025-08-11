@@ -4,17 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#121212" />
-    <title>Weather App</title>
+    <title>Global Weather Dashboard | Forecast, Air Quality, Map & Sports Suitability</title>
+    <meta name="description" content="Live global weather dashboard with interactive map, 5-day forecast, air quality, hourly trends, sports suitability, and upcoming finance & news panels.">
+    <meta name="keywords" content="weather, forecast, air quality, map, meteorology, sports weather, finance, news">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="https://example.com/">
+    <meta property="og:title" content="Global Weather Dashboard" />
+    <meta property="og:description" content="Interactive weather map, forecast, AQI, sports suitability and more." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://example.com/" />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Global Weather Dashboard" />
+    <meta name="twitter:description" content="Interactive weather + forecast + AQI + sports suitability." />
+    <meta name="twitter:image" content="/icons/icon-512.png" />
+    <link rel="preconnect" href="https://tile.openweathermap.org" crossorigin>
+    <link rel="preconnect" href="https://openweathermap.org" crossorigin>
+    <link rel="preconnect" href="https://nominatim.openstreetmap.org" crossorigin>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Global Weather Dashboard",
+            "url": "https://example.com/",
+            "description": "Live global weather dashboard with interactive map, forecast, AQI, sports suitability, finance & news placeholders.",
+            "publisher": {
+                "@type": "Organization",
+                "name": "WeatherLab",
+                "logo": {"@type":"ImageObject","url":"https://example.com/icons/icon-192.png"}
+            },
+            "potentialAction": {"@type": "SearchAction","target":"https://example.com/?q={query}","query-input":"required name=query"}
+        }
+        </script>
+        <script id="weather-structured-data" type="application/ld+json"></script>
 </head>
 <body>
     <main class="page">
-    <div class="container">
-        <h1>Weather App</h1>
-        <div class="search-container" role="search">
+        <div class="container" id="mainContent">
+                <h1>Global Weather Dashboard</h1>
+                <nav class="site-nav main-nav" aria-label="Primary navigation">
+                    <ul>
+                        <li><a class="btn" href="index.html" aria-current="page">Weather</a></li>
+                        <li><a class="btn" href="finance.html">Finance</a></li>
+                        <li><a class="btn" href="news.html">News</a></li>
+                    </ul>
+                </nav>
+                <div class="search-container" role="search">
             <div class="input-wrapper">
                 <input type="text" id="locationInput" placeholder="Enter a city" aria-label="City or location" autocomplete="off" list="recentList">
                 <span id="clearButton" class="clear-button" title="Clear input" aria-hidden="true">&times;</span>
@@ -47,7 +86,7 @@
             <p id="windSpeed"></p>
             <p id="feelsLike"></p>
         </div>
-        <div class="extras">
+    <div class="extras">
             <div class="time-sun">
                 <h3>Local time & sun</h3>
                 <p id="localTime"></p>
@@ -65,7 +104,7 @@
                 <div id="sportsDetails" class="sports-details"></div>
             </div>
         </div>
-        <div id="forecast" class="forecast">
+    <div id="forecast" class="forecast">
             <h3>5-day forecast</h3>
             <div id="forecastGrid" class="forecast-grid" aria-live="polite"></div>
         </div>
@@ -77,5 +116,6 @@
     <div id='map' class='map-panel'></div>
     </main>
     <script src="js/script.js"></script>
+    <!-- Finance & News scripts only loaded on their own pages -->
 </body>
 </html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Finance & Weather Sensitivity | Global Dashboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/styles.css" />
+<meta name="description" content="Finance channel: market overview with weather sensitivity and commodity outlook." />
+</head>
+<body>
+<main class="page" id="mainContent">
+  <div class="container">
+    <h1>Finance & Weather</h1>
+    <nav class="site-nav main-nav" aria-label="Primary navigation">
+      <ul>
+  <li><a class="btn" href="index.html">Weather</a></li>
+  <li><a class="btn" href="finance.html" aria-current="page">Finance</a></li>
+  <li><a class="btn" href="news.html">News</a></li>
+      </ul>
+    </nav>
+    <section aria-labelledby="marketHeading">
+      <h2 id="marketHeading">Market Overview</h2>
+      <ul id="financeList" class="mini-list" aria-live="polite"></ul>
+    </section>
+    <section aria-labelledby="commodityHeading">
+      <h2 id="commodityHeading">Commodity & Weather Links</h2>
+      <ul id="commodityList" class="mini-list" aria-live="polite"></ul>
+    </section>
+  </div>
+</main>
+<script type="module" src="js/finance.js"></script>
+<script type="module">
+// extra placeholder commodity logic
+const commodityList = document.getElementById('commodityList');
+if(commodityList){
+  const data = [
+    { name:'Wheat', note:'Watching rainfall patterns in major belts' },
+    { name:'Natural Gas', note:'Cooling/heating degree day deviation' },
+    { name:'Coffee', note:'Temperature + humidity stress index' }
+  ];
+  commodityList.innerHTML = data.map(d=>`<li><strong>${d.name}:</strong> ${d.note}</li>`).join('');
+}
+</script>
+</body>
+</html>

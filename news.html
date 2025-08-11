@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Weather & Climate News | Global Dashboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/styles.css" />
+<meta name="description" content="Latest weather, climate, and environmental impact headlines." />
+</head>
+<body>
+<main class="page" id="mainContent">
+  <div class="container">
+    <h1>Weather & Climate News</h1>
+    <nav class="site-nav main-nav" aria-label="Primary navigation">
+      <ul>
+  <li><a class="btn" href="index.html">Weather</a></li>
+  <li><a class="btn" href="finance.html">Finance</a></li>
+  <li><a class="btn" href="news.html" aria-current="page">News</a></li>
+      </ul>
+    </nav>
+    <section aria-labelledby="topStoriesHeading">
+      <h2 id="topStoriesHeading">Top Stories</h2>
+      <ul id="newsList" class="mini-list" aria-live="polite"></ul>
+    </section>
+    <section aria-labelledby="alertsHeading">
+      <h2 id="alertsHeading">Advisories</h2>
+      <ul id="alertList" class="mini-list" aria-live="polite"></ul>
+    </section>
+  </div>
+</main>
+<script type="module" src="js/news.js"></script>
+<script type="module">
+// placeholder advisories
+const alertList = document.getElementById('alertList');
+if(alertList){
+  const alerts = [
+    'Monitoring severe convective outlook feed...',
+    'Heat advisory prototype channel...',
+    'Flood risk bulletin initialization...'
+  ];
+  alertList.innerHTML = alerts.map(a=>`<li>${a}</li>`).join('');
+}
+</script>
+</body>
+</html>
