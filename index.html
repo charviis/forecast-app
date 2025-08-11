@@ -10,9 +10,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
-<body>
-    <main class="page">
-    <div class="container">
+<body class="has-bg-map">
+    <div id="mapBackground" class="map-background"></div>
+    <main class="page overlay-layout">
+    <div class="container glass">
         <h1>Weather App</h1>
         <div class="search-container" role="search">
             <div class="input-wrapper">
@@ -69,9 +70,8 @@
             <div id="hourlyChart" class="hourly-chart" aria-hidden="true"></div>
         </div>
     </div>
-    <div class="container map-panel">
-        <div id='map' style='height: 300px; width: 100%; position: relative; margin: auto;'></div>
-    </div>
+    <!-- Offscreen map holder to be used for overlays (kept for Leaflet initialization) -->
+    <div id='map' class='hidden-map'></div>
     </main>
     <script src="js/script.js"></script>
 </body>
